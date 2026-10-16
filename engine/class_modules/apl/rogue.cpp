@@ -93,7 +93,8 @@ void rogue( player_t* p )
     default_->add_action( "ambush,if=stealthed|buff.cutthroat.up", "Cutthroat procs allow Ambush out of Stealth" );
     default_->add_action( "garrote,if=stealthed" );
     add_snd( default_, "slice_and_dice,if=!buff.slice_and_dice.up&combo_points>=2" );
-    default_->add_action( "preparation,if=cooldown.ghostly_strike.remains>10&cooldown.cold_blood.remains>30" );
+    // Without Vanish, Preparation's only target in this tree is Ghostly Strike (and Cold Blood in hybrid builds)
+    default_->add_action( "preparation,if=cooldown.ghostly_strike.remains>10&(!talent.cold_blood|cooldown.cold_blood.remains>30)" );
     default_->add_action( "rupture,if=combo_points>=5&!dot.rupture.ticking&debuff.hemorrhage.up&target.time_to_die>10",
                           "Hemorrhage's debuff and Serrated Blades make Rupture the big finisher" );
     add_snd( default_, "slice_and_dice,if=combo_points>=4&buff.slice_and_dice.remains<3" );
