@@ -52,7 +52,7 @@ void priest( player_t* p )
   shadow->add_action( "devouring_plague,if=!ticking" );
   shadow->add_action( "inner_focus,if=cooldown.mind_blast.ready", "Free Mind Blast with +25% crit" );
   shadow->add_action( "mind_blast" );
-  shadow->add_action( "shadow_word_death" );
+  shadow->add_action( "shadow_word_death,if=target.health.pct<20|mana.pct>50", "Mind Flay does more damage per mana; Shadow Word: Death is for spare mana and the Early Demise window" );
   shadow->add_action( "starshards" );
   shadow->add_action( "mind_flay" );
   shadow->add_action( "shoot", "Wand when nothing else is affordable" );
@@ -62,9 +62,9 @@ void priest( player_t* p )
   smite->add_action( "holy_fire,if=!ticking" );
   smite->add_action( "inner_focus,if=cooldown.penance.ready|!talent.penance" );
   smite->add_action( "penance" );
-  smite->add_action( "mind_blast" );
-  smite->add_action( "shadow_word_death" );
-  smite->add_action( "devouring_plague,if=!ticking" );
+  smite->add_action( "holy_nova,if=buff.holy_purpose.up", "Free Holy Nova from Searing Light" );
+  smite->add_action( "mind_blast,if=mana.pct>50", "Shadow spells without Shadow Focus miss often; Devouring Plague costs too much mana without Shadowform" );
+  smite->add_action( "shadow_word_death,if=mana.pct>50" );
   smite->add_action( "starshards" );
   smite->add_action( "smite" );
   smite->add_action( "shoot", "Wand when nothing else is affordable" );
