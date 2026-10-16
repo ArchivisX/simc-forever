@@ -14879,6 +14879,13 @@ bool player_t::register_passive_effect( const spelleffect_data_t& modifying_eff,
           if ( spell->_cooldown == 0 && flat_val < 0 )
             continue;
           field = "cooldown";
+          // the client applies the cooldown modifier to the category cooldown as well. If both are the same
+          // (classic data: Mind Blast 8 s/8 s), modify both so charge_cooldown() keeps the reduction.
+          if ( spell->_cooldown != 0 && spell->get_field( "category_cooldown" ) == spell->get_field( "cooldown" ) )
+          {
+            field2 = "category_cooldown";
+            field_type2 = A_MODIFY_CATEGORY_COOLDOWN;
+          }
           break;
         case P_PROC_CHANCE:  // 18
           if ( spell->_proc_chance == 101 )
