@@ -1414,8 +1414,9 @@ double action_t::calculate_weapon_damage( double attack_power ) const
   if ( !weapon || weapon_multiplier <= 0 )
     return 0;
 
-  // The weapon damage roll (and its bonus damage) is affected by attak power modifiers just like regular attack power
-  double capm             = player -> composite_attack_power_multiplier();
+  // Forever: classic attack power multipliers (Vindication, Trueshot Aura, ...) only raise attack power, the
+  // weapon damage roll is unaffected. The retail rule multiplies the roll as well.
+  double capm             = 1.0;
   double dmg              = capm * ( sim->averaged_range( weapon->min_dmg, weapon->max_dmg ) + weapon->bonus_dmg );
   timespan_t weapon_speed = normalize_weapon_speed ? weapon->get_normalized_speed() : weapon->swing_time;
   double power_damage     = weapon_speed.total_seconds() * weapon_power_mod * attack_power;
