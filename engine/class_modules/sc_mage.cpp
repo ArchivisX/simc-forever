@@ -663,8 +663,7 @@ struct arcane_explosion_t : public mage_spell_t
 struct presence_of_mind_t : public mage_spell_t
 {
   presence_of_mind_t( mage_t* p, std::string_view options_str ) :
-    mage_spell_t( "presence_of_mind", p, p->talent.presence_of_mind.rank() ? dbc::find_spell( p, 12043 )
-                                                                              : spell_data_t::not_found() )
+    mage_spell_t( "presence_of_mind", p, p->talent.presence_of_mind )
   {
     parse_options( options_str );
     harmful = false;
@@ -681,8 +680,7 @@ struct presence_of_mind_t : public mage_spell_t
 struct arcane_power_t : public mage_spell_t
 {
   arcane_power_t( mage_t* p, std::string_view options_str ) :
-    mage_spell_t( "arcane_power", p, p->talent.arcane_power.rank() ? dbc::find_spell( p, 12042 )
-                                                                      : spell_data_t::not_found() )
+    mage_spell_t( "arcane_power", p, p->talent.arcane_power )
   {
     parse_options( options_str );
     harmful = false;
@@ -863,8 +861,7 @@ struct flamestrike_t : public mage_spell_t
 struct combustion_t : public mage_spell_t
 {
   combustion_t( mage_t* p, std::string_view options_str ) :
-    mage_spell_t( "combustion", p, p->talent.combustion.rank() ? dbc::find_spell( p, 11129 )
-                                                                  : spell_data_t::not_found() )
+    mage_spell_t( "combustion", p, p->talent.combustion )
   {
     parse_options( options_str );
     harmful = false;
@@ -1073,8 +1070,7 @@ struct cold_snap_t : public mage_spell_t
   std::vector<cooldown_t*> frost_cooldowns;
 
   cold_snap_t( mage_t* p, std::string_view options_str ) :
-    mage_spell_t( "cold_snap", p, p->talent.cold_snap.rank() ? dbc::find_spell( p, 12472 )
-                                                                : spell_data_t::not_found() )
+    mage_spell_t( "cold_snap", p, p->talent.cold_snap )
   {
     parse_options( options_str );
     harmful = false;
