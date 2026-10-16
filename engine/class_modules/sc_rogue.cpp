@@ -140,9 +140,6 @@ constexpr timespan_t slice_and_dice_per_cp = 3_s;
 constexpr timespan_t venom_per_cp          = 3_s;
 constexpr timespan_t rupture_per_cp        = 2_s;
 
-// Premeditation's combo points are lost if not used within the buff duration (20 s)
-constexpr double premeditation_cp = 2.0;
-
 enum class poison_e
 {
   NONE,
@@ -282,11 +279,8 @@ struct rogue_t final : public player_t
   struct spells_t
   {
     const spell_data_t* coup_de_grace            = spell_data_t::not_found();
-    const spell_data_t* relentless_strikes_energy = spell_data_t::not_found();
     const spell_data_t* cutthroat_buff            = spell_data_t::not_found();
     const spell_data_t* thousand_cuts_buff        = spell_data_t::not_found();
-    const spell_data_t* hack_and_slash_dagger     = spell_data_t::not_found();
-    const spell_data_t* hack_and_slash_mace       = spell_data_t::not_found();
   } spell;
 
   struct buffs_t
@@ -396,6 +390,7 @@ public:
   bool affected_by_cold_blood = false;
   bool seal_fate_source       = false;  // a combo point builder (or a Mutilate hand)
   bool consumes_thousand_cuts = false;
+  bool affected_by_quietus    = false;  // Quietus is a Dummy aura: Sinister Strike, Ghostly Strike, Hemorrhage
 
   template <typename... Args>
   rogue_action_t( Args&&... args ) : ab( std::forward<Args>( args )... )
@@ -507,6 +502,18 @@ public:
 
     if ( seal_fate_source && s->result == RESULT_CRIT )
       p()->trigger_seal_fate( s );
+  }
+
+  // Quietus: more damage against targets below the health threshold (effect #2)
+  double composite_da_multiplier( const action_state_t* s ) const override
+  {
+    double m = ab::composite_da_multiplier( s );
+
+    if ( affected_by_quietus && p()->talent.quietus.ok() &&
+         s->target->health_percentage() < p()->talent.quietus->effectN( 2 ).base_value() )
+      m *= 1.0 + p()->talent.quietus->effectN( 1 ).percent();
+
+    return m;
   }
 
   // Hack and Slash (dagger/fist branch): crit with daggers and fist weapons
@@ -788,16 +795,8 @@ struct sinister_strike_t : public rogue_strike_t
     rogue_strike_t( "sinister_strike", p, p->find_spell( max_rank( p, sinister_strike_ranks ).spell_id ) )
   {
     parse_options( options_str );
-  }
 
-  double composite_da_multiplier( const action_state_t* s ) const override
-  {
-    double m = rogue_strike_t::composite_da_multiplier( s );
-
-    if ( p()->talent.quietus.ok() && s->target->health_percentage() < p()->talent.quietus->effectN( 2 ).base_value() )
-      m *= 1.0 + p()->talent.quietus->effectN( 1 ).percent();
-
-    return m;
+    affected_by_quietus = true;
   }
 };
 
@@ -830,7 +829,8 @@ struct backstab_t : public rogue_strike_t
 
     // Puncturing Wounds: chance for an extra combo point
     if ( p()->talent.puncturing_wounds.ok() && rng().roll( p()->talent.puncturing_wounds->effectN( 2 ).percent() ) )
-      p()->trigger_combo_point_gain( 1, p()->gain.puncturing_wounds, this );
+      p()->trigger_combo_point_gain( p()->talent.puncturing_wounds->effectN( 2 ).trigger()->effectN( 1 ).base_value(),
+                                     p()->gain.puncturing_wounds, this );
 
     // Cutthroat: chance that the next Ambush within 10 s doesn't need Stealth
     if ( p()->talent.cutthroat.ok() && rng().roll( p()->talent.cutthroat->effectN( 1 ).percent() ) )
@@ -857,7 +857,8 @@ struct rogue_opener_t : public Base
 
     if ( this->result_is_hit( s->result ) && this->p()->talent.initiative.ok() &&
          this->rng().roll( this->p()->talent.initiative->effectN( 1 ).percent() ) )
-      this->p()->trigger_combo_point_gain( 1, this->p()->gain.initiative, this );
+      this->p()->trigger_combo_point_gain( this->p()->talent.initiative->effectN( 1 ).trigger()->effectN( 1 ).base_value(),
+                                           this->p()->gain.initiative, this );
   }
 };
 
@@ -913,18 +914,10 @@ struct ghostly_strike_t : public rogue_strike_t
   {
     parse_options( options_str );
 
+    affected_by_quietus = true;
+
     if ( data().ok() && weapon && weapon->type == WEAPON_DAGGER )
       weapon_multiplier = data().effectN( 4 ).percent();
-  }
-
-  double composite_da_multiplier( const action_state_t* s ) const override
-  {
-    double m = rogue_strike_t::composite_da_multiplier( s );
-
-    if ( p()->talent.quietus.ok() && s->target->health_percentage() < p()->talent.quietus->effectN( 2 ).base_value() )
-      m *= 1.0 + p()->talent.quietus->effectN( 1 ).percent();
-
-    return m;
   }
 };
 
@@ -937,6 +930,8 @@ struct hemorrhage_t : public rogue_strike_t
   {
     parse_options( options_str );
 
+    affected_by_quietus = true;
+
     if ( data().ok() && weapon && weapon->type == WEAPON_DAGGER )
       weapon_multiplier = data().effectN( 5 ).percent();
   }
@@ -947,16 +942,6 @@ struct hemorrhage_t : public rogue_strike_t
 
     if ( result_is_hit( s->result ) )
       td( s->target )->debuff.hemorrhage->trigger();
-  }
-
-  double composite_da_multiplier( const action_state_t* s ) const override
-  {
-    double m = rogue_strike_t::composite_da_multiplier( s );
-
-    if ( p()->talent.quietus.ok() && s->target->health_percentage() < p()->talent.quietus->effectN( 2 ).base_value() )
-      m *= 1.0 + p()->talent.quietus->effectN( 1 ).percent();
-
-    return m;
   }
 
   // Gated by the talent node; the trained ranks share the talent spell
@@ -1096,15 +1081,15 @@ struct rogue_finisher_t : public Base
     if ( p->talent.relentless_strikes.ok() )
     {
       const auto& eff = p->talent.relentless_strikes->effectN( 1 );
-      double per_cp   = std::max( eff.base_value(), eff.pp_combo_points() ) / 100.0;
-      if ( this->rng().roll( per_cp * cp ) )
-        p->resource_gain( RESOURCE_ENERGY, p->spell.relentless_strikes_energy->effectN( 1 ).base_value(),
+      if ( this->rng().roll( eff.pp_combo_points() / 100.0 * cp ) )
+        p->resource_gain( RESOURCE_ENERGY, eff.trigger()->effectN( 1 ).base_value(),
                           p->gain.relentless_strikes, this );
     }
 
     // Ruthlessness: chance for a combo point after the finisher
     if ( p->talent.ruthlessness.ok() && this->rng().roll( p->talent.ruthlessness->effectN( 1 ).percent() ) )
-      p->trigger_combo_point_gain( 1, p->gain.ruthlessness, this );
+      p->trigger_combo_point_gain( p->talent.ruthlessness->effectN( 1 ).trigger()->effectN( 1 ).base_value(),
+                                   p->gain.ruthlessness, this );
   }
 };
 
@@ -1323,6 +1308,8 @@ struct premeditation_t : public rogue_spell_t
     may_miss = false;
     target   = p;
     energize_type = action_energize::NONE;  // granted manually so the premeditation gain is tracked
+    seal_fate_source = false;               // a self cast: its "crit" must not trigger Seal Fate
+    may_crit         = false;
   }
 
   bool ready() override
@@ -1556,11 +1543,8 @@ void rogue_t::init_spells()
   // 2026-10-16: Coup de Grace is a hidden level 30 passive in the Assassination skill line (AcquireMethod 0), not a
   // talent; assumed baseline for every rogue from level 30 (validation hook V-R10).
   spell.coup_de_grace             = find_spell( 1310709 );
-  spell.relentless_strikes_energy = find_spell( 14181 );
   spell.cutthroat_buff            = find_spell( 462707 );
-  spell.thousand_cuts_buff        = find_spell( 1310723 );
-  spell.hack_and_slash_dagger     = find_spell( 13706 );
-  spell.hack_and_slash_mace       = find_spell( 13709 );
+  spell.thousand_cuts_buff        = talent.thousand_cuts->effectN( 1 ).trigger();
 
   // Hack and Slash and Dual Wield Specialization are dummies / unknown auras, applied in code
   parse_all_class_passives();
@@ -1625,7 +1609,8 @@ void rogue_t::create_buffs()
                              // unused Premeditation combo points are lost when it runs out
                              if ( remains <= 0_ms )
                                resource_loss( RESOURCE_COMBO_POINT,
-                                              std::min( premeditation_cp, resources.current[ RESOURCE_COMBO_POINT ] ) );
+                                              std::min( talent.premeditation->effectN( 1 ).base_value(),
+                                                        resources.current[ RESOURCE_COMBO_POINT ] ) );
                            } );
 
   buff.cutthroat = make_buff( this, "cutthroat", spell.cutthroat_buff );
