@@ -119,6 +119,20 @@ constexpr std::array slam_ranks {
   spell_rank_t{ 11605 },
 };
 
+constexpr std::array mortal_strike_ranks {
+  spell_rank_t{ 12294 },
+  spell_rank_t{ 21551 },
+  spell_rank_t{ 21552 },
+  spell_rank_t{ 21553 },
+};
+
+constexpr std::array bloodthirst_ranks {
+  spell_rank_t{ 23881 },
+  spell_rank_t{ 23892 },
+  spell_rank_t{ 23893 },
+  spell_rank_t{ 23894 },
+};
+
 // Execute is only usable on targets at or below this health percentage (spell description, no data field)
 constexpr double execute_health_pct = 20.0;
 
@@ -155,6 +169,13 @@ struct warrior_t : public player_t
     // Arms
     // Row 1
     player_talent_t deflection;
+
+    // Row 7
+    player_talent_t mortal_strike;
+
+    // Fury
+    // Row 7
+    player_talent_t bloodthirst;
 
   } talent;
 
@@ -589,6 +610,37 @@ struct slam_t : public warrior_attack_t
   }
 };
 
+// Talent abilities: the talent teaches rank 1, higher ranks come from the trainer, so the highest known
+// rank is only used if the talent is taken.
+template <typename RANKS>
+const spell_data_t* talent_rank_spell( const warrior_t* p, const player_talent_t& talent, const RANKS& ranks )
+{
+  return talent.ok() ? p->find_spell( max_rank( p, ranks ).spell_id ) : spell_data_t::not_found();
+}
+
+struct mortal_strike_t : public warrior_attack_t
+{
+  mortal_strike_t( warrior_t* player, util::string_view options_str ) :
+    warrior_attack_t( "mortal_strike", player, talent_rank_spell( player, player->talent.mortal_strike, mortal_strike_ranks ) )
+  {
+    parse_options( options_str );
+  }
+};
+
+// 2026-10-16: Forever Bloodthirst is physical School Damage (effect 1) plus a Dummy effect 2 holding the
+// attack power percentage (45% at all ranks), and it also grants a movement speed buff (effect 3, not
+// modelled). Vanilla's heal on hit is gone.
+struct bloodthirst_t : public warrior_attack_t
+{
+  bloodthirst_t( warrior_t* player, util::string_view options_str ) :
+    warrior_attack_t( "bloodthirst", player, talent_rank_spell( player, player->talent.bloodthirst, bloodthirst_ranks ) )
+  {
+    parse_options( options_str );
+
+    attack_power_mod.direct = data().effectN( 2 ).percent();
+  }
+};
+
 /////////////////////////////////////////////////////////////////////////////////////
 //
 // Stats, Actions, Oh my
@@ -657,6 +709,9 @@ void warrior_t::init_spells()
 {
   player_t::init_spells();
 
+  talent.mortal_strike = find_talent_spell( talent_tree::CLASS, "Mortal Strike" );
+  talent.bloodthirst   = find_talent_spell( talent_tree::CLASS, "Bloodthirst" );
+
   parse_all_class_passives();
   parse_all_passive_talents();
 }
@@ -677,6 +732,8 @@ action_t* warrior_t::create_action( util::string_view name, util::string_view op
   if ( name == "overpower" ) return new overpower_t( this, options_str );
   if ( name == "execute" ) return new execute_t( this, options_str );
   if ( name == "slam" ) return new slam_t( this, options_str );
+  if ( name == "mortal_strike" ) return new mortal_strike_t( this, options_str );
+  if ( name == "bloodthirst" ) return new bloodthirst_t( this, options_str );
 
   return player_t::create_action( name, options_str );
 }
