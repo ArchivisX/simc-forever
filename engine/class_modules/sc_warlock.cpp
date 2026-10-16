@@ -62,6 +62,16 @@ constexpr std::array corruption_ranks {
   spell_rank_t{ 25311 },
 };
 
+// Forever renamed Curse of Agony to Bane of Agony
+constexpr std::array bane_of_agony_ranks {
+  spell_rank_t{ 980 },    // 8
+  spell_rank_t{ 1014 },   // 18
+  spell_rank_t{ 6217 },   // 28
+  spell_rank_t{ 11711 },  // 38
+  spell_rank_t{ 11712 },  // 48
+  spell_rank_t{ 11713 },  // 58
+};
+
 constexpr std::array life_tap_ranks {
   spell_rank_t{ 1454 },   // 6
   spell_rank_t{ 1455 },   // 16
@@ -181,6 +191,36 @@ struct corruption_t : public warlock_spell_t
     warlock_spell_t( "corruption", player, player->find_spell( max_rank( player, corruption_ranks ).spell_id ) )
   {
     parse_options( options_str );
+  }
+};
+
+// Bane of Agony (Curse of Agony)
+// "This damage is dealt slowly at first, and builds up as the Bane reaches its full duration."
+// The tick amount in the data is the average. Vanilla Curse of Agony dealt 50% of it for the first third
+// of the ticks, 100% for the second and 150% for the last third (sum unchanged); the Forever description
+// matches, the exact split is unverified (2026-10-16).
+
+struct bane_of_agony_t : public warlock_spell_t
+{
+  bane_of_agony_t( warlock_t* player, util::string_view options_str ) :
+    warlock_spell_t( "bane_of_agony", player, player->find_spell( max_rank( player, bane_of_agony_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+  }
+
+  // The ramp depends on the tick number, so it is applied per tick rather than snapshot on application
+  double calculate_tick_amount( action_state_t* s, double dot_multiplier ) const override
+  {
+    if ( dot_t* d = find_dot( s->target ); d && d->num_ticks() > 0 )
+    {
+      double progress = static_cast<double>( d->current_tick ) / d->num_ticks();
+      if ( progress <= 1.0 / 3.0 )
+        dot_multiplier *= 0.5;
+      else if ( progress > 2.0 / 3.0 )
+        dot_multiplier *= 1.5;
+    }
+
+    return warlock_spell_t::calculate_tick_amount( s, dot_multiplier );
   }
 };
 
@@ -364,6 +404,8 @@ action_t* warlock_t::create_action( util::string_view name, util::string_view op
   if ( name == "corruption" )
     return new corruption_t( this, options_str );
 
+  if ( name == "bane_of_agony" || name == "curse_of_agony" )
+    return new bane_of_agony_t( this, options_str );
   if ( name == "life_tap" )
     return new life_tap_t( this, options_str );
 
