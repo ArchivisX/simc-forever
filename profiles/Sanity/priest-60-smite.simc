@@ -1,0 +1,17 @@
+# Forever priest sample: level 60 Smite / Holy Fire / Penance DPS (31/20/0 Discipline/Holy) vs a level 63 boss.
+# Same stat stand-in gear as priest-60-shadow.simc. Talents by name (class_talents=), not an addon string.
+# Forever's Smite and Holy Fire top ranks are ~45% of Classic, so this sims well below Shadow (spec finding).
+priest="Sample_Priest_Smite_60"
+level=60
+race=human
+role=spell
+class_talents=power_in_light:5/twin_disciplines:5/holy_precision:3/mental_strength:5/inner_focus:1/mental_agility:3/meditation:3/improved_inner_fire:3/penance:1/martyrdom:1/power_infusion:1/holy_specialization:5/divine_fury:5/holy_nova:1/inspiration:3/searing_light:2/spiritual_guidance:4
+main_hand=,id=873
+# Wand: ESTIMATE of a level 60 blue wand (~54 DPS, vanilla-like numbers, not from item data). The engine has no
+# ranged slot, so the priest module takes the wand as min:max:speed[:school]
+priest.wand=64:120:1.7:arcane
+gear_intellect=150
+gear_spirit=110
+gear_stamina=110
+gear_spell_power=250
+gear_crit_rating=28
