@@ -4603,7 +4603,7 @@ double player_t::composite_attack_power_multiplier() const
 
   double m = current.attack_power_multiplier;
 
-  m *= 1.0 + sim->auras.battle_shout->check_value();
+  // Forever: the optimal raid Battle Shout is flat attack power, see player_t::parse_raid_buffs()
 
   // multiplier is rounded to 3 digits
   return std::round( m * 1000 ) * 0.001;
@@ -5133,18 +5133,14 @@ double player_t::composite_attribute_multiplier( attribute_e attr ) const
       break;
     case ATTR_INTELLECT:
       pct_type = STAT_PCT_BUFF_INTELLECT;
-      if ( sim->auras.arcane_intellect->check() )
-        m *= 1.0 + sim->auras.arcane_intellect->current_value;
+      // Forever: the optimal raid Arcane Intellect is a flat stat buff, see player_t::parse_raid_buffs()
       break;
     case ATTR_SPIRIT:
       pct_type = STAT_PCT_BUFF_SPIRIT;
       break;
     case ATTR_STAMINA:
       pct_type = STAT_PCT_BUFF_STAMINA;
-      if ( sim->auras.power_word_fortitude->check() )
-      {
-        m *= 1.0 + sim->auras.power_word_fortitude->current_value;
-      }
+      // Forever: the optimal raid Power Word: Fortitude is a flat stat buff, see player_t::parse_raid_buffs()
       break;
     default:
       break;
@@ -15526,13 +15522,46 @@ void player_t::parse_raid_buffs()
     register_precombat_begin( [ buff ]( auto ) { buff->override_buff(); } );
   }
 
-  // mark of the wild
-  if ( sim->overrides.mark_of_the_wild )
-  {
-    // if overrides are registered for the 'self-buff' talents, use the cloned spell_data_t
-    auto spell = dbc_override->find_spell( sim->auras.mark_of_the_wild->data().id(), is_ptr() );
+  // Forever: classic raid buffs are flat stats that come in ranks, so use the best rank for the actor's level. The class
+  // that casts the buff applies its own (the same spell doesn't stack), so it is skipped here.
+  auto best_rank = [ this ]( std::initializer_list<unsigned> ranks ) {
+    const spell_data_t* best = spell_data_t::not_found();
+    for ( auto id : ranks )
+    {
+      auto spell = dbc::find_spell( this, id );
+      if ( spell->ok() && as<int>( spell->level() ) <= true_level )
+        best = spell;
+    }
+    return best;
+  };
 
-    parse_passive_effects( spell ? spell : &sim->auras.mark_of_the_wild->data(), true );
+  // mark of the wild
+  if ( sim->overrides.mark_of_the_wild && type != DRUID )
+  {
+    if ( auto spell = best_rank( { 1126, 5232, 6756, 5234, 8907, 9884, 9885 } ); spell->ok() )
+      parse_passive_effects( spell, true );
+  }
+
+  // arcane intellect
+  if ( sim->overrides.arcane_intellect && type != MAGE )
+  {
+    if ( auto spell = best_rank( { 1459, 1460, 1461, 10156, 10157 } ); spell->ok() )
+      parse_passive_effects( spell, true );
+  }
+
+  // battle shout (melee attack power only)
+  if ( sim->overrides.battle_shout && type != WARRIOR )
+  {
+    // aura 99 isn't a passive player effect (form passives use it), so it is added here
+    if ( auto spell = best_rank( { 6673, 5242, 6192, 11549, 11550, 11551, 25289 } ); spell->ok() )
+      classic.raid_attack_power = spell->effectN( 1 ).average( this );
+  }
+
+  // power word: fortitude
+  if ( sim->overrides.power_word_fortitude && type != PRIEST )
+  {
+    if ( auto spell = best_rank( { 1243, 1244, 1245, 2791, 10937, 10938 } ); spell->ok() )
+      parse_passive_effects( spell, true );
   }
 }
 
