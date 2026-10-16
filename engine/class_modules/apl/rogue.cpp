@@ -49,6 +49,14 @@ void rogue( player_t* p )
 
   std::string builder = mh_dagger ? "backstab" : "sinister_strike";
 
+  // Slice and Dice rank 1 (+20%, levels 10-41) loses to Eviscerate in sims (L25 Combat: -8%); rank 2 (+30%) is
+  // about even with it at 60, so the buff is only kept up from level 42.
+  bool snd = p->true_level >= 42;
+  auto add_snd = [ snd ]( action_priority_list_t* list, std::string_view action ) {
+    if ( snd )
+      list->add_action( action );
+  };
+
   if ( assassination )
   {
     bool mutilate = has( "Mutilate" ) && mh_dagger && oh_dagger;
@@ -59,9 +67,9 @@ void rogue( player_t* p )
     default_->add_action( "auto_attack", "Not usable while stealthed: the opener comes first" );
     default_->add_action( "ambush,if=stealthed" );
     default_->add_action( "garrote,if=stealthed" );
-    default_->add_action( "slice_and_dice,if=!buff.slice_and_dice.up&combo_points>=2" );
+    add_snd( default_, "slice_and_dice,if=!buff.slice_and_dice.up&combo_points>=2" );
     default_->add_action( "cold_blood,if=combo_points>=4" );
-    default_->add_action( "slice_and_dice,if=combo_points>=4&buff.slice_and_dice.remains<2" );
+    add_snd( default_, "slice_and_dice,if=combo_points>=4&buff.slice_and_dice.remains<2" );
     if ( mutilate )
     {
       // Venom (31 points) is a finisher too: at 4 combo points it loses to Eviscerate with the sample gear
@@ -84,11 +92,11 @@ void rogue( player_t* p )
     default_->add_action( "auto_attack", "Not usable while stealthed: the opener comes first" );
     default_->add_action( "ambush,if=stealthed|buff.cutthroat.up", "Cutthroat procs allow Ambush out of Stealth" );
     default_->add_action( "garrote,if=stealthed" );
-    default_->add_action( "slice_and_dice,if=!buff.slice_and_dice.up&combo_points>=2" );
+    add_snd( default_, "slice_and_dice,if=!buff.slice_and_dice.up&combo_points>=2" );
     default_->add_action( "preparation,if=cooldown.ghostly_strike.remains>10&cooldown.cold_blood.remains>30" );
     default_->add_action( "rupture,if=combo_points>=5&!dot.rupture.ticking&debuff.hemorrhage.up&target.time_to_die>10",
                           "Hemorrhage's debuff and Serrated Blades make Rupture the big finisher" );
-    default_->add_action( "slice_and_dice,if=combo_points>=4&buff.slice_and_dice.remains<3" );
+    add_snd( default_, "slice_and_dice,if=combo_points>=4&buff.slice_and_dice.remains<3" );
     default_->add_action( "eviscerate,if=combo_points>=5" );
     default_->add_action( "ghostly_strike,if=combo_points<5" );
     // Hemorrhage (35 energy, 145% with a dagger) builds combo points faster per energy than Backstab and finishers
@@ -102,10 +110,10 @@ void rogue( player_t* p )
     precombat->add_action( "stealth" );
 
     default_->add_action( "auto_attack", "Not usable while stealthed: the opener comes first" );
-    default_->add_action( "slice_and_dice,if=!buff.slice_and_dice.up&combo_points>=1" );
-    default_->add_action( "blade_flurry,if=buff.slice_and_dice.up" );
-    default_->add_action( "adrenaline_rush,if=buff.slice_and_dice.up&energy<=50" );
-    default_->add_action( "slice_and_dice,if=combo_points>=5&buff.slice_and_dice.remains<3" );
+    add_snd( default_, "slice_and_dice,if=!buff.slice_and_dice.up&combo_points>=2" );
+    default_->add_action( snd ? "blade_flurry,if=buff.slice_and_dice.up" : "blade_flurry" );
+    default_->add_action( snd ? "adrenaline_rush,if=buff.slice_and_dice.up&energy<=50" : "adrenaline_rush,if=energy<=50" );
+    add_snd( default_, "slice_and_dice,if=combo_points>=5&buff.slice_and_dice.remains<3" );
     default_->add_action( "eviscerate,if=combo_points>=5" );
     default_->add_action( builder + ",if=combo_points<5" );
   }

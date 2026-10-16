@@ -1,0 +1,20 @@
+# Forever rogue sample: level 60 Subtlety Hemorrhage (20/0/31) vs a level 63 boss, from behind.
+# Base stats L31-60 are ESTIMATE rows (vanilla). Talents use class_talents (no rogue addon export yet).
+# Opener: Stealth, Premeditation, Ambush. Daggers: Heartseeker (1.9) / Glacial Blade (1.8). Instant Poison on both hands.
+rogue="Forever_Rogue_60_Subtlety"
+level=60
+race=human
+role=attack
+position=back
+class_talents=malice:5/ruthlessness:3/murder:2/improved_slice_and_dice:3/relentless_strikes:1/lethality:5/improved_expose_armor:1/opportunity:2/master_of_deception:3/improved_ambush:3/initiative:3/ghostly_strike:1/premeditation:1/serrated_blades:3/hemorrhage:1/dirty_deeds:2/preparation:1/cutthroat:5/quietus:5/thousand_cuts:1
+# Pre-raid leather: Shadowcraft (cap, spaulders, tunic, bracers, belt, boots), Devilsaur gauntlets and leggings
+head=,id=16707
+shoulder=,id=16708
+chest=,id=16721
+wrist=,id=16710
+hands=,id=15063
+waist=,id=16713
+legs=,id=15062
+feet=,id=16711
+main_hand=,id=12783
+off_hand=,id=19099
