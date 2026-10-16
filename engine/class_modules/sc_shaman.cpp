@@ -126,6 +126,18 @@ constexpr std::array strength_of_earth_totem_ranks {
   totem_rank_t{ 25361,  25362 },
 };
 
+struct shaman_t;
+
+struct shaman_td_t : public actor_target_data_t
+{
+  struct debuffs_t
+  {
+    buff_t* stormstrike = nullptr;
+  } debuff;
+
+  shaman_td_t( player_t* target, shaman_t* p );
+};
+
 struct shaman_t final : public player_t
 {
   shaman_t( sim_t* sim, util::string_view name, race_e r = RACE_NONE ) :
@@ -144,6 +156,14 @@ struct shaman_t final : public player_t
 
   double composite_melee_attack_power() const override;
   void invalidate_cache( cache_e c ) override;
+
+  shaman_td_t* get_target_data( player_t* target ) const override
+  {
+    shaman_td_t*& td = target_data[ target ];
+    if ( !td )
+      td = new shaman_td_t( target, const_cast<shaman_t*>( this ) );
+    return td;
+  }
 
   action_t* create_action( util::string_view name, util::string_view options_str ) override;
   void init_action_list() override;
@@ -164,11 +184,28 @@ struct shaman_t final : public player_t
 
     // Row 2
     player_talent_t mental_dexterity;
+
+    player_talent_t stormstrike;
   } talent;
+
+  struct spells_t
+  {
+    const spell_data_t* stormstrike = spell_data_t::not_found();
+  } spell;
+
+  target_specific_t<shaman_td_t> target_data;
 
   action_t* flametongue_attack = nullptr;
 
 };
+
+// Stormstrike (2026-10-16): in Forever data the debuff is effect #2 of the talent spell itself (Modify
+// Damage Taken% from Caster's Spells, 20%, 1 charge, 12 s), whitelisting Lightning Bolt, Chain Lightning
+// and Earth Shock. The vanilla 2 charge nature damage taken debuff does not exist in this client.
+shaman_td_t::shaman_td_t( player_t* target, shaman_t* p ) : actor_target_data_t( target, p )
+{
+  debuff.stormstrike = make_buff( *this, "stormstrike", p->spell.stormstrike );
+}
 
 // SHAMAN MODULE INTERFACE ==================================================
 
@@ -214,14 +251,37 @@ private:
 public:
   using base_t = shaman_action_t<Base>;
 
+  bool affected_by_stormstrike = false;
+
   template <typename... Args>
-  shaman_action_t( Args&&... args ) : ab( std::forward<Args>( args )... ) {}
+  shaman_action_t( Args&&... args ) : ab( std::forward<Args>( args )... )
+  {
+    const spell_data_t* stormstrike = p()->spell.stormstrike;
+
+    this->parse_target_effects( []( actor_target_data_t* td ) {
+      return static_cast<shaman_td_t*>( td )->debuff.stormstrike->check();
+    }, stormstrike );
+
+    affected_by_stormstrike = stormstrike->ok() && this->data().affected_by( stormstrike->effectN( 2 ) );
+  }
 
   shaman_t* p()
   { return debug_cast<shaman_t*>( this->player ); }
 
   const shaman_t* p() const
   { return debug_cast<const shaman_t*>( this->player ); }
+
+  shaman_td_t* td( player_t* t ) const
+  { return p()->get_target_data( t ); }
+
+  void impact( action_state_t* s ) override
+  {
+    ab::impact( s );
+
+    // The Stormstrike debuff is used up by the next whitelisted spell that lands on the target
+    if ( affected_by_stormstrike && this->result_is_hit( s->result ) )
+      td( s->target )->debuff.stormstrike->decrement();
+  }
 };
 
 
@@ -251,6 +311,13 @@ void shaman_t::init_spells()
   parse_all_passive_talents();
 
   talent.mental_dexterity = find_talent_spell( talent_tree::CLASS, "Mental Dexterity" );
+  talent.stormstrike      = find_talent_spell( talent_tree::CLASS, "Stormstrike" );
+
+  // Stormstrike (2026-10-16): the talent spell keeps its classic spell level 40, so player_t::find_spell
+  // (and with it player_talent_t::ok()) hides it below level 40, but Forever talent nodes are taken from
+  // the talent tree's own level gates (the level 20 beta export has it). Selecting the node is the gate.
+  if ( talent.stormstrike.rank() > 0 )
+    spell.stormstrike = dbc::find_spell( this, talent.stormstrike.trait()->id_spell );
 }
 
 double shaman_t::composite_melee_attack_power() const
@@ -455,6 +522,28 @@ struct strength_of_earth_totem_t : public shaman_spell_t
 // Shaman Attack
 // ==========================================================================
 
+// Stormstrike: talent, normalized main hand weapon damage (effect #1) plus the target debuff
+struct stormstrike_t : public shaman_attack_t
+{
+  stormstrike_t( shaman_t* player, util::string_view options_str ) :
+    shaman_attack_t( "stormstrike", player, player->spell.stormstrike )
+  {
+    parse_options( options_str );
+  }
+
+  // Gated by the talent node, not the leftover classic spell level (see shaman_t::init_spells)
+  bool verify_actor_level() const override
+  { return true; }
+
+  void impact( action_state_t* s ) override
+  {
+    shaman_attack_t::impact( s );
+
+    if ( result_is_hit( s->result ) )
+      td( s->target )->debuff.stormstrike->trigger();
+  }
+};
+
 // shaman_attack_t::impact ============================================
 
 // Melee Attack =============================================================
@@ -529,6 +618,9 @@ action_t* shaman_t::create_action( util::string_view name, util::string_view opt
     return new flame_shock_t( this, options_str );
   if ( name == "frost_shock" )
     return new frost_shock_t( this, options_str );
+
+  if ( name == "stormstrike" )
+    return new stormstrike_t( this, options_str );
 
   if ( name == "lightning_bolt" )
     return new lightning_bolt_t( this, options_str );
