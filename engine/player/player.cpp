@@ -1759,6 +1759,20 @@ void player_t::init_initial_stats()
 
     sim->print_debug( "{} total gear stats: {}", *this, total_gear );
 
+    // Forever: "Restores X mana per 5 sec." is item mod 43 (ITEM_MOD_MANA_REGENERATION), which has no
+    // simc stat_e. Collect it into the classic mp5 pool instead (2026-10-16).
+    for ( const auto& item : items )
+    {
+      if ( !item.active() )
+        continue;
+
+      for ( size_t i = 0; i < std::size( item.parsed.data.stat_type_e ); i++ )
+      {
+        if ( item.parsed.data.stat_type_e[ i ] == ITEM_MOD_MANA_REGENERATION )
+          classic.mp5 += std::max( 0, item.stat_value( i ) );
+      }
+    }
+
     initial.stats += enchant;
     initial.stats += sim->enchant;
   }
