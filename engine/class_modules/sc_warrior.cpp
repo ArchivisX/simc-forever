@@ -133,6 +133,18 @@ constexpr std::array bloodthirst_ranks {
   spell_rank_t{ 23894 },
 };
 
+constexpr std::array whirlwind_ranks {
+  spell_rank_t{ 1680 },
+};
+
+constexpr std::array cleave_ranks {
+  spell_rank_t{ 845 },
+  spell_rank_t{ 7369 },
+  spell_rank_t{ 11608 },
+  spell_rank_t{ 11609 },
+  spell_rank_t{ 20569 },
+};
+
 // Execute is only usable on targets at or below this health percentage (spell description, no data field)
 constexpr double execute_health_pct = 20.0;
 
@@ -185,6 +197,7 @@ struct warrior_t : public player_t
     buff_t* bloodrage    = nullptr;
 
     buff_t* heroic_strike_queued = nullptr;
+    buff_t* cleave_queued        = nullptr;
     buff_t* overpower            = nullptr;
   } buff;
 
@@ -194,6 +207,11 @@ struct warrior_t : public player_t
   } gain;
 
   action_t* heroic_strike = nullptr;
+  action_t* cleave        = nullptr;
+
+  // only one on next swing ability can be queued at a time
+  bool next_swing_queued() const
+  { return buff.heroic_strike_queued->check() || buff.cleave_queued->check(); }
 };
 
 template <class Base>
@@ -326,20 +344,28 @@ struct warrior_melee_t : public warrior_attack_t
     special           = false;
   }
 
+  // try to trigger a queued on next swing ability in place of this swing
+  bool trigger_next_swing( action_t* ability, buff_t* queued )
+  {
+    if ( !queued->check() )
+      return false;
+
+    if ( p()->resource_available( RESOURCE_RAGE, ability->cost() ) )
+    {
+      ability->execute_on_target( target );
+      schedule_execute();
+      return true;
+    }
+    // didn't have enough rage, cancel the tracking queue buff
+    queued->expire();
+    return false;
+  }
+
   void execute() override
   {
-    // try to trigger a queued heroic strike
-    if ( p()->buff.heroic_strike_queued->check() )
-    {
-      if ( p()->resource_available( RESOURCE_RAGE, p()->heroic_strike->cost() ) )
-      {
-        p()->heroic_strike->execute_on_target( target );
-        schedule_execute();
-        return;
-      }
-      // didn't have enough rage, cancel the tracking queue buff
-      p()->buff.heroic_strike_queued->expire();
-    }
+    if ( trigger_next_swing( p()->heroic_strike, p()->buff.heroic_strike_queued ) ||
+         trigger_next_swing( p()->cleave, p()->buff.cleave_queued ) )
+      return;
 
     warrior_attack_t::execute();
   }
@@ -412,22 +438,30 @@ struct rend_t : public warrior_attack_t
   }
 };
 
-// APL action to queue up heroic strike
+// APL action to queue up an on next swing ability (heroic strike, cleave)
 // Checks to make sure warrior has enough rage to queue it up
-// The actual HS execute in the melee swing will check rage again to make sure that rage
+// The actual execute in the melee swing will check rage again to make sure that rage
 // wasn't consumed mid-swing
 // TODO: Is there a better way to handle On Next Swing?
-// TODO: look into generalizing this pattern for cleave, hunter (raptor strike), and druid (maul)
-struct heroic_strike_queue_t : public action_t
+// TODO: look into generalizing this pattern for hunter (raptor strike), and druid (maul)
+struct next_swing_queue_t : public action_t
 {
-  heroic_strike_queue_t( warrior_t* p, util::string_view options_str )
-    : action_t( ACTION_OTHER, "heroic_strike_queue", p )
+  action_t* ability;
+  buff_t* warrior_t::buffs_t::*queued;
+
+  next_swing_queue_t( warrior_t* p, util::string_view name, util::string_view options_str, action_t* ability,
+                      buff_t* warrior_t::buffs_t::*queued )
+    : action_t( ACTION_OTHER, name, p ), ability( ability ), queued( queued )
   {
     parse_options( options_str );
 
     trigger_gcd = 0_ms;
     harmful = false;
     ignore_false_positive = true;
+
+    // ability not learned yet
+    if ( !ability->data().ok() )
+      background = true;
   }
 
   warrior_t* p() const
@@ -436,11 +470,11 @@ struct heroic_strike_queue_t : public action_t
   bool ready() override
   {
     // already queued
-    if ( p()->buff.heroic_strike_queued->check() )
+    if ( p()->next_swing_queued() )
       return false;
 
     // not enough rage
-    if ( !p()->resource_available( RESOURCE_RAGE, p()->heroic_strike->cost() ) )
+    if ( !p()->resource_available( RESOURCE_RAGE, ability->cost() ) )
       return false;
 
     return action_t::ready();
@@ -448,7 +482,7 @@ struct heroic_strike_queue_t : public action_t
 
   void execute() override
   {
-    p()->buff.heroic_strike_queued->trigger();
+    ( p()->buff.*queued )->trigger();
   }
 };
 
@@ -467,6 +501,37 @@ struct heroic_strike_t : public warrior_attack_t
     warrior_attack_t::execute();
 
     p()->buff.heroic_strike_queued->expire();
+  }
+};
+
+// On next swing like Heroic Strike; the second target comes from the effect's chain targets.
+struct cleave_t : public warrior_attack_t
+{
+  cleave_t( warrior_t* player, util::string_view options_str ) :
+    warrior_attack_t( "cleave", player, player->find_spell( max_rank( player, cleave_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+
+    trigger_gcd = 0_ms;
+  }
+
+  void execute() override
+  {
+    warrior_attack_t::execute();
+
+    p()->buff.cleave_queued->expire();
+  }
+};
+
+// Up to max targets (4) from the spell data, normalized weapon damage.
+// TODO: Only the main hand is modelled (the spell hits with both weapons). Stances are not modelled
+// (Whirlwind needs Berserker Stance).
+struct whirlwind_t : public warrior_attack_t
+{
+  whirlwind_t( warrior_t* player, util::string_view options_str ) :
+    warrior_attack_t( "whirlwind", player, player->find_spell( max_rank( player, whirlwind_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
   }
 };
 
@@ -683,6 +748,7 @@ void warrior_t::init_gains()
 void warrior_t::create_actions()
 {
   heroic_strike = new heroic_strike_t( this, "" );
+  cleave        = new cleave_t( this, "" );
 
   player_t::create_actions();
 }
@@ -690,6 +756,7 @@ void warrior_t::create_actions()
 void warrior_t::create_buffs()
 {
   buff.heroic_strike_queued = make_buff( this, "heroic_strike_queued" );
+  buff.cleave_queued        = make_buff( this, "cleave_queued" );
 
   buff.overpower = make_buff( this, "overpower" )
                      ->set_duration( overpower_window );
@@ -725,7 +792,11 @@ action_t* warrior_t::create_action( util::string_view name, util::string_view op
   if ( name == "charge" ) return new charge_t( this, options_str );
 
   if ( name == "rend" ) return new rend_t( this, options_str );
-  if ( name == "heroic_strike" ) return new heroic_strike_queue_t( this, options_str );
+  if ( name == "heroic_strike" )
+    return new next_swing_queue_t( this, "heroic_strike_queue", options_str, heroic_strike, &buffs_t::heroic_strike_queued );
+  if ( name == "cleave" )
+    return new next_swing_queue_t( this, "cleave_queue", options_str, cleave, &buffs_t::cleave_queued );
+  if ( name == "whirlwind" ) return new whirlwind_t( this, options_str );
 
 
   if ( name == "thunder_clap" ) return new thunder_clap_t( this, options_str );
