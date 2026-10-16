@@ -40,28 +40,30 @@ Twist of Light -20%, Swift Judgement (free next Judgement).
   (flat crit points), Consecrated Ground, Sanctified Judgement and Sacred Arbiter's refresh.
 
 **Default APL:** BoM → SotC → JotC once → Seal of Command (or SoR without the talent) → reseal → HoW →
-Divine Favor/Holy Shock → Light's Vigil → Holy Strike → Judgement → Twist (mana > 50%, always back to SoC) →
-Exorcism → Consecration (AoE or mana > 90%).
+Divine Favor/Holy Shock → Light's Vigil → Holy Strike → Judgement → Exorcism → Twist (only above 95% mana and
+outside the HoW phase, always back to SoC) → Consecration (3+ targets).
 
 ## Sample results (1000 iterations, 300 s, level 63 boss, default `optimal_raid=1`)
 
 | Profile | DPS | Top abilities |
 |---|---|---|
-| `paladin-60-retribution` (Undead, 20/0/31 Twist) | 212.7 | melee 35.6%, SoC proc 22.1%, Holy Strike 21.3%, JoC 16.0%, HoW 2.6% |
-| `paladin-60-shockadin` (Undead, 21/0/30) | 211.2 | melee 32.8%, SoC proc 21.3%, Holy Strike 20.3%, JoC 16.6%, Holy Shock 8.0% |
-| `paladin-25-retribution` (Undead, 16 Ret, vs L25) | 56.6 | melee 50.4%, SoC proc 19.2%, Holy Strike 15.7%, JoC 14.8% |
+| `paladin-60-retribution` (Undead, 20/0/31 Twist) | 216.6 | melee 34.9%, SoC proc 22.1%, Holy Strike 20.8%, JoC 17.2%, HoW 4.4% |
+| `paladin-60-shockadin` (Undead, 21/0/30) | 210.4 | melee 32.8%, SoC proc 21.1%, Holy Strike 20.5%, JoC 16.6%, Holy Shock 8.1% |
+| `paladin-25-retribution` (Undead, 16 Ret, vs L25) | 56.5 | melee 50.5%, SoC proc 19.0%, Holy Strike 15.7%, JoC 14.9% |
 | `Sanity/warrior-60-melee` (no talents, Arcanite Reaper only) | 68.0 | heroic strike 47%, melee 37%, rend 15% |
 | paladin with the same gear (Arcanite Reaper only, human), no talents | 99.3 | |
 | paladin with the same gear, retribution talents | 166.4 | |
 
 Mana, measured at seed 7:
-- Retribution sits around 40–45% and spends under 10% of the fight below 10% mana.
+- Retribution (no twisting) stays near full mana until the Hammer of Wrath phase and overflows about 6%. With the
+  old "twist above 50% mana" line it sat at 40–45% and could only afford 3 of 5 Hammers of Wrath.
 - Shockadin drains to about 15% after 2 minutes and spends 26% of the fight below 10%.
 - Leveling L25 runs dry late in the fight (41% of the time below 10%; the L25 pool is 782).
 - Waiting is about 70%, which is normal for a melee GCD class.
 
 Profilesets:
-- No Twist of Light (Instrument of Law 2/2 instead): 213.7 vs 212.2. Twisting is about DPS-neutral because mana binds.
+- APL variants (Retribution, 2000 it): twisting above 50% mana 212.7, never twisting 216.1, twisting only above 95%
+  mana and outside execute 216.8 (the default). A twist costs two seals (~290 mana) for two SoR hits.
 - Seal of Command at 4 PPM (the beta report): 198.4.
 - Undead boss with Exorcism: +4.6 DPS.
 
@@ -109,7 +111,10 @@ Profilesets:
 
 1. **Aura 174** (spell damage from a % of a stat) in the core. Paladin applies Champion of the Light in
    `composite_spell_power`.
-2. **A108 property 7** (percent crit modifier): classic means additive crit points. simc multiplies a zero base.
+2. **A108 property 7** (percent crit modifier): classic means additive crit points. `player_t::parse_passive_effects`
+   stores it as a crit chance multiplier (`action_t::parse_spell_data`: `crit_chance_multiplier *= pct`), which
+   multiplies the whole crit chance. Paladin converts the parsed multiplier back to points (Holy Power); the core
+   should add `pct - 1` to `base_crit` for classic data instead.
 3. **Property 16 hit** is only parsed per action (`parse_effects(spell, PARSE_PASSIVE)`). It could be a
    player-level passive field.
 4. `parse_effect_data` ignores the SP coefficient on weapon-damage effects (E121/E31): Holy Strike 0.429,
@@ -121,3 +126,6 @@ Profilesets:
    `cooldown.holy_shock.remains<1.5`.
 8. The talent hash export/import fails for classes with no specialization.
 9. Attack `miss_chance` can go negative (it is skipped by `build_table`, so harmless).
+10. **Hit rating does nothing**: `player_t::composite_melee_hit` (and the spell equivalent) has the rating term
+    commented out (retail has no hit). `gear_hit_rating=200` leaves melee Miss at 8%. Forever items carry hit
+    as rating (the L60 samples have 40), so it should be converted again.
