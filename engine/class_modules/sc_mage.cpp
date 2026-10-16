@@ -505,13 +505,17 @@ public:
   {
     // Arcane Concentration: chance after any damage spell hits, 1 s internal cooldown.
     // ESTIMATE: the "reduced chance for low-rank spells" (Oct 1 notes) is not modelled.
+    // The buff is applied in a separate event: spells without travel time impact before their cost is paid,
+    // so an immediate trigger would make the proccing cast free and leave Clearcasting up for the next one.
     if ( triggers_arcane_concentration && p()->talent.arcane_concentration.ok() &&
          p()->arcane_concentration_icd->up() &&
          this->rng().roll( p()->talent.arcane_concentration->effectN( 1 ).percent() ) )
     {
-      p()->buff.clearcasting->trigger();
-      p()->proc.clearcasting->occur();
       p()->arcane_concentration_icd->start();
+      make_event( *this->sim, [ p = p() ] {
+        p->buff.clearcasting->trigger();
+        p->proc.clearcasting->occur();
+      } );
     }
 
     bool crit = s->result == RESULT_CRIT;
