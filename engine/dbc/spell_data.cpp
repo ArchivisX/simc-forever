@@ -173,6 +173,13 @@ double spelleffect_data_t::delta( const player_t* p, unsigned level ) const
 
     m_scale = p->dbc->spell_scaling( scaling_class(), scaling_level );
   }
+  // Forever 2026-10-16: classic spells have no scaling class; their damage range is the Variance
+  // (_m_delta) fraction of the (per-level scaled) base value, min/max = avg * (1 -/+ delta / 2).
+  // E.g. Shadow Bolt R10 268 +-5.5%, Major Mana Potion 1800 +-25% (1350-2250).
+  else if ( _m_delta != 0 && _m_coeff == 0 && scaling_class() == 0 )
+  {
+    return average( p, level ) * _m_delta;
+  }
 
   return scaled_delta( m_scale );
 }
