@@ -576,9 +576,9 @@ struct cleave_t : public warrior_attack_t
   }
 };
 
-// Up to max targets (4) from the spell data, normalized weapon damage.
-// TODO: Only the main hand is modelled (the spell hits with both weapons). Stances are not modelled
-// (Whirlwind needs Berserker Stance).
+// Up to max targets (4) from the spell data, normalized main hand weapon damage (the spell has a single
+// weapon damage effect, so no off hand strike as in later expansions).
+// TODO: Stances are not modelled (Whirlwind needs Berserker Stance).
 struct whirlwind_t : public warrior_attack_t
 {
   whirlwind_t( warrior_t* player, util::string_view options_str ) :
