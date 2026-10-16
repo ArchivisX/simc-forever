@@ -101,6 +101,17 @@ constexpr std::array overpower_ranks {
   spell_rank_t{ 11585 },
 };
 
+constexpr std::array execute_ranks {
+  spell_rank_t{ 5308 },
+  spell_rank_t{ 20658 },
+  spell_rank_t{ 20660 },
+  spell_rank_t{ 20661 },
+  spell_rank_t{ 20662 },
+};
+
+// Execute is only usable on targets at or below this health percentage (spell description, no data field)
+constexpr double execute_health_pct = 20.0;
+
 // 2026-10-16: The client marks the Overpower window with a warrior combo point on the dodging target
 // (Overpower lists "1 - 5 Combo Points" as a second power cost); no spell data carries the window length.
 // Vanilla kept it for 5 seconds after the dodge.
@@ -487,6 +498,65 @@ struct overpower_t : public warrior_attack_t
   }
 };
 
+// 2026-10-16: Execute's damage is a Dummy effect: base value = flat damage, and the effect's chain
+// amplitude is damage per point of extra rage in internal rage units (tenths), which the tooltip shows
+// as "$*10;F1" (0.3 -> 3 damage per rage at rank 1, 1.5 -> 15 at rank 5). All rage above the cost is
+// consumed on a hit.
+// TODO: Unknown whether a missed/dodged Execute also loses the extra rage; we keep it (only the
+// discounted base cost is paid).
+// TODO: Stances are not modelled (Execute needs Battle or Berserker Stance).
+struct execute_t : public warrior_attack_t
+{
+  double rage_damage;
+  double extra_rage;
+
+  execute_t( warrior_t* player, util::string_view options_str ) :
+    warrior_attack_t( "execute", player, player->find_spell( max_rank( player, execute_ranks ).spell_id ) ),
+    rage_damage( 0.0 ), extra_rage( 0.0 )
+  {
+    parse_options( options_str );
+
+    const auto& dmg = data().effectN( 1 );
+    base_dd_min = base_dd_max = dmg.base_value();
+    rage_damage = dmg.chain_multiplier() * RAGE_UNITS_PER_RAGE;
+  }
+
+  // client rage is stored in tenths of a point
+  static constexpr double RAGE_UNITS_PER_RAGE = 10.0;
+
+  bool target_ready( player_t* candidate_target ) override
+  {
+    if ( candidate_target->health_percentage() > execute_health_pct )
+      return false;
+
+    return warrior_attack_t::target_ready( candidate_target );
+  }
+
+  void execute() override
+  {
+    extra_rage = std::max( 0.0, p()->resources.current[ RESOURCE_RAGE ] - cost() );
+
+    warrior_attack_t::execute();
+  }
+
+  double bonus_da( const action_state_t* s ) const override
+  {
+    return warrior_attack_t::bonus_da( s ) + extra_rage * rage_damage;
+  }
+
+  void consume_resource() override
+  {
+    warrior_attack_t::consume_resource();
+
+    if ( extra_rage > 0 && result_is_hit( execute_state->result ) )
+    {
+      player->resource_loss( RESOURCE_RAGE, extra_rage, nullptr, this );
+      stats->consume_resource( RESOURCE_RAGE, extra_rage );
+      last_resource_cost += extra_rage;
+    }
+  }
+};
+
 /////////////////////////////////////////////////////////////////////////////////////
 //
 // Stats, Actions, Oh my
@@ -573,6 +643,7 @@ action_t* warrior_t::create_action( util::string_view name, util::string_view op
 
   if ( name == "thunder_clap" ) return new thunder_clap_t( this, options_str );
   if ( name == "overpower" ) return new overpower_t( this, options_str );
+  if ( name == "execute" ) return new execute_t( this, options_str );
 
   return player_t::create_action( name, options_str );
 }
