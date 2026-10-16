@@ -691,11 +691,9 @@ struct execute_t : public warrior_attack_t
 
     const auto& dmg = data().effectN( 1 );
     base_dd_min = base_dd_max = dmg.base_value();
-    rage_damage = dmg.chain_multiplier() * RAGE_UNITS_PER_RAGE;
+    // client rage is stored in tenths of a point (power type display multiplier 0.1)
+    rage_damage = dmg.chain_multiplier() / power_type_data_t::multiplier( RESOURCE_RAGE );
   }
-
-  // client rage is stored in tenths of a point
-  static constexpr double RAGE_UNITS_PER_RAGE = 10.0;
 
   bool target_ready( player_t* candidate_target ) override
   {
