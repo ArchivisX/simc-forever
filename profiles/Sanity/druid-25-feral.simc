@@ -1,0 +1,18 @@
+# Forever druid sample: level 25 Feral (Cat) leveling, vs a level 25 target, from behind (Shred).
+# Quest/dungeon greens and Ironwood Treebranch. 16 talent points: Ferocity 5, Heart of the Wild 5,
+# Shredding Attacks 3, Savage Fury 2 and the 16 point milestone Shifting Power (spec druid.md section 5.3).
+# No Ferocious Bite before level 32; the default APL uses Rip at 4+ combo points instead.
+druid="Sanity_Druid_25_Feral"
+level=25
+race=tauren
+role=attack
+position=back
+class_talents=ferocity:5/heart_of_the_wild:5/shredding_attacks:3/savage_fury:2/shifting_power:1
+chest=,id=1489
+wrist=,id=897
+hands=,id=1978
+waist=,id=1215
+legs=,id=3056
+feet=,id=1121
+main_hand=,id=911
+target_level=25
