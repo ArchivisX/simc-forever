@@ -1,0 +1,15 @@
+# Forever matched-gear comparison: level 60 rogue Combat (talents from profiles/Rogue/rogue-60-combat.simc), swords.
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+rogue="Matched_Rogue_Combat"
+level=60
+race=undead
+role=attack
+position=back
+class_talents=malice:5/ruthlessness:3/murder:2/improved_slice_and_dice:3/relentless_strikes:1/lethality:4/improved_eviscerate:3/improved_sinister_strike:2/precision:3/deflection:2/riposte:1/endurance:2/improved_sprint:2/flawless_execution:1/dual_wield_specialization:5/blade_flurry:1/hack_and_slash:5/weapon_expertise:2/aggression:3/adrenaline_rush:1
+main_hand=matched_sword,weapon=sword_2.60speed_95min_134max
+off_hand=matched_sword_oh,weapon=sword_1.80speed_66min_92max
+gear_agility=200
+gear_strength=120
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28

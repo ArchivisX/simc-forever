@@ -1,0 +1,14 @@
+# Forever matched-gear comparison: level 60 druid Balance 31/0/20 (talents from profiles/Sanity/druid-60-balance.simc).
+# Gear = the common caster budget in README.md (stat totals via gear_*, no real items). Default APL.
+druid="Matched_Druid_Balance"
+level=60
+race=tauren
+role=spell
+class_talents=improved_wrath:5/genesis:2/improved_moonfire:2/natures_majesty:2/natures_reach:2/natures_splendor:1/moonglow:1/insect_swarm:1/vengeance:5/natures_grace:1/eclipse:3/moonfury:5/moonkin_form:1/naturalist:5/natures_focus:5/reflection:3/natural_shapeshifter:3/improved_rejuvenation:3/living_spirit:1
+main_hand=matched_staff,weapon=staff_3.60speed_180min_252max
+gear_intellect=150
+gear_spirit=100
+gear_stamina=250
+gear_spell_power=280
+gear_hit_rating=30
+gear_crit_rating=28

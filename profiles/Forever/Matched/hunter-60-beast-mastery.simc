@@ -1,0 +1,18 @@
+# Forever matched-gear comparison: level 60 hunter Beast Mastery (talents from profiles/Sanity/hunter-60-bm.simc).
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+hunter="Matched_Hunter_Beast_Mastery"
+level=60
+race=tauren
+role=attack
+position=back
+class_talents=deadly_aspects:5/focused_fire:2/improved_aspect_of_the_monkey:3/unleashed_fury:5/bestial_swiftness:1/ferocity:5/summon_hawk:1/intimidation:1/bestial_discipline:2/frenzy:5/bestial_wrath:1/lethal_attacks:5/careful_aim:5/efficiency:5/trueshot_aura:1/mortal_shots:4
+main_hand=matched_polearm,weapon=polearm_3.60speed_180min_252max
+ranged=matched_bow,weapon=bow_3.00speed_100min_140max
+gear_agility=260
+gear_intellect=60
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28
+# Hunter kit (ESTIMATE, vanilla): Thorium Headed Arrow ammo and a 15% quiver
+ammo_dps=17.5
+quiver_haste=15

@@ -1,0 +1,18 @@
+# Forever matched-gear comparison: level 60 hunter Survival (talents from profiles/Sanity/hunter-60-sv.simc).
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+hunter="Matched_Hunter_Survival"
+level=60
+race=tauren
+role=attack
+position=back
+class_talents=improved_tracking:5/savage_strikes:2/survivalist:3/surefooted:3/deterrence:1/clever_traps:1/predators_edge:5/expose_prey:2/resourcefulness:2/strider_kick:1/137851:5/lacerating_strikes:1/lethal_attacks:5/careful_aim:5/efficiency:5/rapid_killing:2/improved_arcane_shot:3
+main_hand=matched_polearm,weapon=polearm_3.60speed_180min_252max
+ranged=matched_bow,weapon=bow_3.00speed_100min_140max
+gear_agility=260
+gear_intellect=60
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28
+# Hunter kit (ESTIMATE, vanilla): Thorium Headed Arrow ammo and a 15% quiver
+ammo_dps=17.5
+quiver_haste=15

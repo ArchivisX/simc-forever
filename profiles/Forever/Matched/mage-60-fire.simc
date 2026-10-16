@@ -1,0 +1,28 @@
+# Forever matched-gear comparison: level 60 mage Fire (talents from profiles/Mage/mage-60-fire.simc).
+# Gear = the common caster budget in README.md (stat totals via gear_*, no real items). Default APL.
+mage="Matched_Mage_Fire"
+level=60
+race=undead
+role=spell
+class_talents=arcane_focus:3/missile_barrage:2/arcane_concentration:5/arcane_impact:3/arcane_blast:1/arcane_geometry:1/improved_fireball:5/incineration:3/improved_fire_blast:1/ignite:5/pyroblast:1/heating_up:1/improved_scorch:3/master_of_elements:3/critical_mass:5/fire_power:3/combustion:1/elemental_precision:5
+main_hand=matched_staff,weapon=staff_3.60speed_180min_252max
+gear_intellect=150
+gear_spirit=100
+gear_stamina=250
+gear_spell_power=280
+gear_hit_rating=30
+gear_crit_rating=28
+# Default mage APL (engine/class_modules/apl/mage.cpp) with only the mana_potion and dark_rune lines removed:
+# no class gets consumables in this comparison (README.md). Mana gems are a class ability and stay.
+actions.precombat=arcane_intellect
+actions.precombat+=/mage_armor
+actions.precombat+=/snapshot_stats
+actions=call_action_list,name=mana
+actions+=/combustion
+actions+=/scorch,if=talent.improved_scorch&(debuff.fire_vulnerability.stack<5|debuff.fire_vulnerability.remains<4)
+actions+=/pyroblast,if=buff.heating_up.stack>=3
+actions+=/arcane_missiles,if=buff.missile_barrage.react
+actions+=/fire_blast,if=talent.heating_up&mana.pct>30
+actions+=/fireball
+actions.mana=mana_gem
+actions.mana+=/evocation,if=mana.pct<15

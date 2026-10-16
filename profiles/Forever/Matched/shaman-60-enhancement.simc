@@ -1,0 +1,15 @@
+# Forever matched-gear comparison: level 60 shaman Enhancement 20/31/0 (Stormstrike, Windfury), 2H mace.
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+shaman="Matched_Shaman_Enhancement"
+level=60
+race=tauren
+role=attack
+position=back
+class_talents=convection:5/concussion:5/reverberation:5/call_of_flame:3/elemental_devastation:2/ancestral_knowledge:5/thundering_strikes:5/mental_dexterity:3/elemental_weapons:3/flurry:5/mental_quickness:2/shamanistic_focus:1/stormstrike:1/improved_stormstrike:2/spirit_weapons:1/rage_of_the_farseer:1/improved_ghost_wolf:2
+main_hand=matched_mace2h,weapon=mace2h_3.60speed_180min_252max
+gear_strength=170
+gear_agility=90
+gear_intellect=60
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28

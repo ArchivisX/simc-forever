@@ -1,0 +1,14 @@
+# Forever matched-gear comparison: level 60 warlock Affliction 31/0/20 (imp; Siphon Life/Wrack have no action yet).
+# Gear = the common caster budget in README.md (stat totals via gear_*, no real items). Default APL.
+warlock="Matched_Warlock_Affliction"
+level=60
+race=undead
+role=spell
+class_talents=suppression:5/improved_corruption:5/improved_bane_of_agony:2/pandemic:3/malevolence:5/nightfall:2/siphon_life:1/shadow_mastery:5/wrack:1/improved_life_tap:2/improved_shadow_bolt:5/bane:5/cataclysm:3/ruin:5/agonizing_flames:2
+main_hand=matched_staff,weapon=staff_3.60speed_180min_252max
+gear_intellect=150
+gear_spirit=100
+gear_stamina=250
+gear_spell_power=280
+gear_hit_rating=30
+gear_crit_rating=28

@@ -1,0 +1,14 @@
+# Forever matched-gear comparison: level 60 druid Feral cat 31/0/20 (talents from profiles/Sanity/druid-60-feral.simc), 2H mace.
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+druid="Matched_Druid_Feral"
+level=60
+race=tauren
+role=attack
+position=back
+class_talents=ferocity:5/heart_of_the_wild:5/shredding_attacks:3/savage_fury:2/sharpened_claws:2/shifting_power:1/predatory_strikes:3/blood_frenzy:2/leader_of_the_pack:1/improved_shifting_power:2/rend_and_tear:4/berserk:1/furor:5/naturalist:5/natural_shapeshifter:3/reflection:2/improved_rejuvenation:3/gift_of_nature:2
+main_hand=matched_mace2h,weapon=mace2h_3.60speed_180min_252max
+gear_agility=200
+gear_strength=120
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28

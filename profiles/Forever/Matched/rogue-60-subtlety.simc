@@ -1,0 +1,15 @@
+# Forever matched-gear comparison: level 60 rogue Subtlety (talents from profiles/Rogue/rogue-60-subtlety.simc), daggers.
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+rogue="Matched_Rogue_Subtlety"
+level=60
+race=undead
+role=attack
+position=back
+class_talents=malice:5/ruthlessness:3/murder:2/improved_slice_and_dice:3/relentless_strikes:1/lethality:5/improved_expose_armor:1/opportunity:2/master_of_deception:3/camouflage:1/improved_ambush:3/elusiveness:2/initiative:3/ghostly_strike:1/improved_distract:2/premeditation:1/serrated_blades:3/hemorrhage:1/dirty_deeds:2/preparation:1/quietus:5/thousand_cuts:1
+main_hand=matched_dagger,weapon=dagger_1.80speed_66min_92max
+off_hand=matched_dagger_oh,weapon=dagger_1.80speed_66min_92max
+gear_agility=200
+gear_strength=120
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28

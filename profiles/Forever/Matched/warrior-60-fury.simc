@@ -1,0 +1,15 @@
+# Forever matched-gear comparison: level 60 warrior Fury 17/34/0 (Bloodthirst), dual-wield axes.
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+warrior="Matched_Warrior_Fury"
+level=60
+race=undead
+role=attack
+position=back
+class_talents=improved_heroic_strike:3/improved_rend:3/improved_charge:2/improved_overpower:2/anger_management:1/deep_wounds:3/impale:2/improved_tactical_mastery:1/cruelty:5/unbridled_wrath:5/booming_voice:4/furious_precision:3/dual_wield_specialization:5/enrage:5/flurry:5/death_wish:1/bloodthirst:1
+main_hand=matched_axe,weapon=axe_2.60speed_95min_134max
+off_hand=matched_axe_oh,weapon=axe_1.80speed_66min_92max
+gear_strength=200
+gear_agility=120
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28

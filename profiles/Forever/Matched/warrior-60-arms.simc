@@ -1,0 +1,14 @@
+# Forever matched-gear comparison: level 60 warrior Arms 31/20/0 (Mortal Strike, Weaponmaster axe), 2H axe.
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+warrior="Matched_Warrior_Arms"
+level=60
+race=undead
+role=attack
+position=back
+class_talents=improved_heroic_strike:3/improved_rend:3/improved_charge:2/improved_overpower:2/anger_management:1/deep_wounds:3/twohanded_weapon_specialization:3/impale:2/bloodthrill:5/weaponmaster:5/sweeping_strikes:1/mortal_strike:1/cruelty:5/unbridled_wrath:5/booming_voice:5/enrage:5
+main_hand=matched_axe2h,weapon=axe2h_3.60speed_180min_252max
+gear_strength=200
+gear_agility=120
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28

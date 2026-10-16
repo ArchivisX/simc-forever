@@ -1,0 +1,14 @@
+# Forever matched-gear comparison: level 60 warlock Demonology 0/31/20 (imp kept out; Demonic Sacrifice has no action yet).
+# Gear = the common caster budget in README.md (stat totals via gear_*, no real items). Default APL.
+warlock="Matched_Warlock_Demonology"
+level=60
+race=undead
+role=spell
+class_talents=improved_imp:3/demonic_embrace:5/unholy_power:5/fel_vitality:3/demonic_sacrifice:1/master_summoner:2/fel_domination:1/demonic_knowledge:3/master_demonologist:5/demonic_energies:2/improved_health_funnel:1/improved_shadow_bolt:5/bane:5/cataclysm:3/ruin:5/agonizing_flames:2
+main_hand=matched_staff,weapon=staff_3.60speed_180min_252max
+gear_intellect=150
+gear_spirit=100
+gear_stamina=250
+gear_spell_power=280
+gear_hit_rating=30
+gear_crit_rating=28

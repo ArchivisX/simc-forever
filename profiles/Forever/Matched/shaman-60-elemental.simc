@@ -1,0 +1,14 @@
+# Forever matched-gear comparison: level 60 shaman Elemental 31/20/0 (Lightning Bolt + shocks; no Lava Burst action yet).
+# Gear = the common caster budget in README.md (stat totals via gear_*, no real items). Default APL.
+shaman="Matched_Shaman_Elemental"
+level=60
+race=tauren
+role=spell
+class_talents=convection:5/concussion:5/reverberation:5/elemental_alacrity:3/call_of_flame:3/elemental_focus:1/lightning_overload:3/elemental_fury:5/elemental_mastery:1/ancestral_knowledge:5/thundering_strikes:5/mental_quickness:2/shamanistic_focus:1/toughness:5/improved_ghost_wolf:2
+main_hand=matched_staff,weapon=staff_3.60speed_180min_252max
+gear_intellect=150
+gear_spirit=100
+gear_stamina=250
+gear_spell_power=280
+gear_hit_rating=30
+gear_crit_rating=28

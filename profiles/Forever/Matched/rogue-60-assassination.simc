@@ -1,0 +1,15 @@
+# Forever matched-gear comparison: level 60 rogue Assassination (talents from profiles/Rogue/rogue-60-assassination.simc), daggers.
+# Gear = the common physical budget in README.md (stat totals via gear_*, no real items). Default APL.
+rogue="Matched_Rogue_Assassination"
+level=60
+race=undead
+role=attack
+position=back
+class_talents=malice:5/ruthlessness:3/murder:2/relentless_strikes:1/lethality:5/cold_blood:1/vile_poisons:5/improved_poisons:5/mutilate:1/vigor:2/seal_fate:5/venom:1/improved_eviscerate:3/improved_sinister_strike:2/precision:3/puncturing_wounds:3/endurance:2/improved_sprint:2
+main_hand=matched_dagger,weapon=dagger_1.80speed_66min_92max
+off_hand=matched_dagger_oh,weapon=dagger_1.80speed_66min_92max
+gear_agility=200
+gear_strength=120
+gear_stamina=250
+gear_hit_rating=40
+gear_crit_rating=28
