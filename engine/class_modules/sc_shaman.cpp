@@ -302,8 +302,9 @@ struct flametongue_weapon_t : public shaman_spell_t
     shaman_spell_t( "flametongue_weapon", player, player->find_spell( max_rank( player, flametongue_weapon_ranks ).spell_id ) )
   {
     parse_options( options_str );
-    harmful = false;
-    target = player;
+    harmful  = false;
+    may_miss = false;
+    target   = player;
   }
 
   void execute() override
@@ -329,8 +330,9 @@ struct rockbiter_weapon_t : public shaman_spell_t
     shaman_spell_t( "rockbiter_weapon", player, player->find_spell( max_rank( player, rockbiter_weapon_ranks ).spell_id ) )
   {
     parse_options( options_str );
-    harmful = false;
-    target = player;
+    harmful  = false;
+    may_miss = false;
+    target   = player;
   }
 
   void execute() override
@@ -364,8 +366,9 @@ struct strength_of_earth_totem_t : public shaman_spell_t
     shaman_spell_t( "strength_of_earth_totem", player, player->find_spell( max_rank( player, strength_of_earth_totem_ranks ).spell_id ) )
   {
     parse_options( options_str );
-    harmful = false;
-    target = player;
+    harmful  = false;
+    may_miss = false;
+    target   = player;
   }
 
   void execute() override
