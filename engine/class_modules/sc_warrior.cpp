@@ -109,6 +109,16 @@ constexpr std::array execute_ranks {
   spell_rank_t{ 20662 },
 };
 
+// 2026-10-16: Forever's rank 1 is a new level 20 spell; 1310196-1310200 are a second copy of the ranks
+// that is not in the warrior SkillLineAbility list, so we use the ids the trainer teaches.
+constexpr std::array slam_ranks {
+  spell_rank_t{ 1240193 },
+  spell_rank_t{ 1464 },
+  spell_rank_t{ 8820 },
+  spell_rank_t{ 11604 },
+  spell_rank_t{ 11605 },
+};
+
 // Execute is only usable on targets at or below this health percentage (spell description, no data field)
 constexpr double execute_health_pct = 20.0;
 
@@ -557,6 +567,28 @@ struct execute_t : public warrior_attack_t
   }
 };
 
+// Slam has a cast time (and in Forever an 18 s cooldown) from the spell data.
+// 2026-10-16: In vanilla, finishing a Slam restarts the main hand swing timer; we model that. The
+// swing timer pausing during the cast is not modelled, so a white swing may still land mid-cast.
+// TODO: Verify both on Forever.
+struct slam_t : public warrior_attack_t
+{
+  slam_t( warrior_t* player, util::string_view options_str ) :
+    warrior_attack_t( "slam", player, player->find_spell( max_rank( player, slam_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+  }
+
+  void execute() override
+  {
+    warrior_attack_t::execute();
+
+    action_t* swing = player->main_hand_attack;
+    if ( swing && swing->execute_event )
+      swing->reschedule_execute( swing->execute_time() );
+  }
+};
+
 /////////////////////////////////////////////////////////////////////////////////////
 //
 // Stats, Actions, Oh my
@@ -644,6 +676,7 @@ action_t* warrior_t::create_action( util::string_view name, util::string_view op
   if ( name == "thunder_clap" ) return new thunder_clap_t( this, options_str );
   if ( name == "overpower" ) return new overpower_t( this, options_str );
   if ( name == "execute" ) return new execute_t( this, options_str );
+  if ( name == "slam" ) return new slam_t( this, options_str );
 
   return player_t::create_action( name, options_str );
 }
