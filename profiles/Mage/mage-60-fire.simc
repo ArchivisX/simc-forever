@@ -1,0 +1,11 @@
+# Forever mage sample: level 60 Fire (15/31/5) vs a level 63 boss, patchwerk.
+# Gear = the warlock mana sanity set (Robe of the Archmage, Mindthrust Bracers, staff) so classes compare.
+# Base stats L31-60 are ESTIMATE rows (vanilla). Talents from simc trait names (no addon export exists yet).
+mage="Forever_Mage_60_Fire"
+level=60
+race=human
+role=spell
+class_talents=arcane_focus:3/missile_barrage:2/arcane_concentration:5/arcane_impact:3/arcane_blast:1/arcane_geometry:1/improved_fireball:5/incineration:3/improved_fire_blast:1/ignite:5/pyroblast:1/heating_up:1/improved_scorch:3/master_of_elements:3/critical_mass:5/fire_power:3/combustion:1/elemental_precision:5
+chest=,id=14152
+wrist=,id=1974
+main_hand=,id=873

@@ -1,0 +1,11 @@
+# Forever mage sample: level 60 Frost (15/0/36) vs a level 63 boss, patchwerk.
+# Winter's Chill / Cone of Cold build; set mage.cone_of_cold_in_range=0 for a ranged-only fight.
+# Gear = the warlock mana sanity set. Base stats L31-60 are ESTIMATE rows (vanilla).
+mage="Forever_Mage_60_Frost"
+level=60
+race=human
+role=spell
+class_talents=arcane_focus:3/missile_barrage:2/arcane_concentration:5/arcane_impact:3/arcane_blast:1/arcane_geometry:1/improved_frostbolt:5/elemental_precision:5/ice_shards:5/piercing_ice:3/ice_lance:1/frost_channeling:3/shatter:3/improved_cone_of_cold:3/cold_snap:1/fingers_of_frost:2/winters_chill:5
+chest=,id=14152
+wrist=,id=1974
+main_hand=,id=873

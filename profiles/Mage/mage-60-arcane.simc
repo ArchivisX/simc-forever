@@ -1,0 +1,11 @@
+# Forever mage sample: level 60 Arcane (31/20/0) vs a level 63 boss, patchwerk.
+# Arcane Blast stacks (Intellect as spell damage) into Arcane Wrath / Missile Barrage.
+# Gear = the warlock mana sanity set. Base stats L31-60 are ESTIMATE rows (vanilla).
+mage="Forever_Mage_60_Arcane"
+level=60
+race=human
+role=spell
+class_talents=arcane_focus:5/missile_barrage:2/arcane_concentration:5/arcane_impact:3/arcane_blast:1/arcane_meditation:3/arcane_wrath:1/presence_of_mind:1/arcane_mind:5/arcane_instability:3/arcane_geometry:1/arcane_power:1/incineration:3/improved_fire_blast:2/ignite:5/improved_fireball:5/pyroblast:1/master_of_elements:3/heating_up:1
+chest=,id=14152
+wrist=,id=1974
+main_hand=,id=873

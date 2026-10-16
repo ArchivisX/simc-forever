@@ -1,0 +1,11 @@
+# Forever mage sample: level 25 Fire leveling (0/16/0): a 60 s pull on a same-level mob.
+# Base stats L21-30 are ESTIMATE rows (vanilla); the leveling mage runs dry in long fights (no gems/armor regen yet).
+# Spells at 25: Fireball R5, Fire Blast R3, Scorch R1, Pyroblast R2, Frost Armor R3. Naked + a staff.
+mage="Forever_Mage_25_Fire"
+level=25
+race=human
+role=spell
+class_talents=improved_fireball:5/incineration:3/improved_fire_blast:1/ignite:5/pyroblast:1/heating_up:1
+main_hand=,id=873
+target_level=25
+max_time=60
