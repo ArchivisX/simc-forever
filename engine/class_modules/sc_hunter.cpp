@@ -724,7 +724,9 @@ private:
 public:
   using base_t = hunter_action_t<Base>;
 
-  // cooldowns started together with this action's (shared category cooldowns)
+  // Shared category cooldowns (Aimed/Multi-Shot, Arcane Shot/Summon Hawk). Separate cooldown_t objects, because
+  // Improved Arcane Shot shortens only Arcane Shot's duration; the spell mod also applies to the category
+  // recovery it starts, so the partner gets this action's modified duration.
   std::vector<cooldown_t*> shared_cooldowns;
 
   template <typename... Args>
@@ -751,7 +753,7 @@ public:
     ab::execute();
 
     for ( cooldown_t* cd : shared_cooldowns )
-      cd->start( this->data().category_cooldown() > 0_ms ? this->data().category_cooldown() : this->cooldown_duration() );
+      cd->start( this->cooldown_duration() );
 
     if ( this->base_execute_time > 0_ms && !this->background )
       p()->last_cast_end = this->sim->current_time();
