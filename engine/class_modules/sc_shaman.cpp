@@ -79,6 +79,34 @@ constexpr std::array flame_shock_ranks {
   spell_rank_t{ 10448 },
   spell_rank_t{ 29228 },
 };
+constexpr std::array frost_shock_ranks {
+  //            spell
+  spell_rank_t{  8056 },
+  spell_rank_t{  8058 },
+  spell_rank_t{ 10472 },
+  spell_rank_t{ 10473 },
+};
+// Explicit ids: the client also has Season of Discovery copies (408439+) with the same names
+constexpr std::array lightning_bolt_ranks {
+  //            spell
+  spell_rank_t{   403 },
+  spell_rank_t{   529 },
+  spell_rank_t{   548 },
+  spell_rank_t{   915 },
+  spell_rank_t{   943 },
+  spell_rank_t{  6041 },
+  spell_rank_t{ 10391 },
+  spell_rank_t{ 10392 },
+  spell_rank_t{ 15207 },
+  spell_rank_t{ 15208 },
+};
+constexpr std::array chain_lightning_ranks {
+  //            spell
+  spell_rank_t{   421 },
+  spell_rank_t{   930 },
+  spell_rank_t{  2860 },
+  spell_rank_t{ 10605 },
+};
 constexpr std::array rockbiter_weapon_ranks {
   //                spell  passive
   rockbiter_rank_t{  8017,  10400 },
@@ -276,6 +304,50 @@ struct flame_shock_t : public shaman_spell_t
   }
 };
 
+// Frost Shock
+
+struct frost_shock_t : public shaman_spell_t
+{
+  frost_shock_t( shaman_t* player, util::string_view options_str ) :
+    shaman_spell_t( "frost_shock", player, player->find_spell( max_rank( player, frost_shock_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+
+    cooldown           = player->get_cooldown( "shock" );
+    cooldown->duration = data().cooldown();
+
+    // TODO: movement slow (effect #1)
+  }
+};
+
+// ==========================================================================
+// Shaman Lightning Spells
+// ==========================================================================
+
+// Lightning Bolt
+
+struct lightning_bolt_t : public shaman_spell_t
+{
+  lightning_bolt_t( shaman_t* player, util::string_view options_str ) :
+    shaman_spell_t( "lightning_bolt", player, player->find_spell( max_rank( player, lightning_bolt_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+  }
+};
+
+// Chain Lightning
+
+// Jump count and per jump damage reduction come from the damage effect (Chain Targets 3, Chain Multiplier
+// 0.7 in build 70334), set up by action_t::parse_effect_data.
+struct chain_lightning_t : public shaman_spell_t
+{
+  chain_lightning_t( shaman_t* player, util::string_view options_str ) :
+    shaman_spell_t( "chain_lightning", player, player->find_spell( max_rank( player, chain_lightning_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+  }
+};
+
 // ==========================================================================
 // Shaman Weapon Imbues
 // ==========================================================================
@@ -455,6 +527,13 @@ action_t* shaman_t::create_action( util::string_view name, util::string_view opt
     return new earth_shock_t( this, options_str );
   if ( name == "flame_shock" )
     return new flame_shock_t( this, options_str );
+  if ( name == "frost_shock" )
+    return new frost_shock_t( this, options_str );
+
+  if ( name == "lightning_bolt" )
+    return new lightning_bolt_t( this, options_str );
+  if ( name == "chain_lightning" )
+    return new chain_lightning_t( this, options_str );
 
   if ( name == "flametongue_weapon" )
     return new flametongue_weapon_t( this, options_str );
