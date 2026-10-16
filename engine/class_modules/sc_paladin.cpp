@@ -321,12 +321,13 @@ public:
       this->parse_effects( p()->talent.divine_precision.spell(), PARSE_PASSIVE );
 
     // Holy Power: classic "Add Percent Modifier: Spell Critical Chance" adds crit chance points (+1-5% to the
-    // listed spells, +3-15% to Holy Shock and Holy Strike); simc would multiply the spells' zero base crit.
-    if ( p()->talent.holy_power.ok() )
+    // listed spells, +3-15% to Holy Shock and Holy Strike). parse_all_passive_talents() stores it as a retail crit
+    // chance multiplier (action_t::parse_spell_data), so turn the parsed multiplier back into additive points.
+    double crit_pct = this->player->get_passive_value( this->data(), "crit" )[ 2 ];
+    if ( crit_pct != 1.0 )
     {
-      for ( const spelleffect_data_t& eff : p()->talent.holy_power->effects() )
-        if ( eff.subtype() == A_ADD_PCT_MODIFIER && eff.misc_value1() == P_CRIT && this->data().affected_by( eff ) )
-          flat_crit_bonus += eff.percent();
+      flat_crit_bonus += crit_pct - 1.0;
+      this->crit_chance_multiplier /= crit_pct;
     }
 
     is_holy = dbc::is_school( this->school, SCHOOL_HOLY );
