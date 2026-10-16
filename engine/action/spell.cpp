@@ -209,5 +209,28 @@ double spell_t::composite_target_multiplier( player_t* t ) const
 
   mul *= composite_target_damage_vulnerability( t );
 
+  mul *= 1.0 - classic_average_resist( t );
+
   return mul;
+}
+
+// Forever 2026-10-16: classic partial resists, modelled as their average (no 25/50/75% rolls).
+// Against higher level NPCs every non-binary magic spell loses 2% per level on average (6% vs +3)
+// even with zero resistance (https://royalgiraffe.github.io/resist-guide, wowsims/classic
+// AverageMagicPartialResistPerLevelMultiplier). Target resistance scores are not modelled (Forever
+// bosses' values are unknown), so binary spells currently lose nothing; their extra miss chance from
+// resistance would be 0.75 * resistance / ( 5 * caster level ).
+double spell_t::classic_average_resist( const player_t* t ) const
+{
+  if ( !sim->classic.partial_resists || binary_resist || !t->is_enemy() || player->is_enemy() )
+    return 0.0;
+
+  if ( get_school() == SCHOOL_PHYSICAL || get_school() == SCHOOL_NONE || get_school() == SCHOOL_HOLY )
+    return 0.0;
+
+  int level_delta = t->level() - player->level();
+  if ( level_delta <= 0 )
+    return 0.0;
+
+  return std::min( 0.02 * level_delta, 0.75 );
 }

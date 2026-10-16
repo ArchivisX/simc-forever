@@ -3876,6 +3876,7 @@ void sim_t::create_options()
   add_option( opt_bool( "classic_glancing", classic.glancing ) );
   add_option( opt_bool( "classic_crit_suppression", classic.crit_suppression ) );
   add_option( opt_bool( "classic_dual_wield_miss", classic.dual_wield_miss ) );
+  add_option( opt_bool( "classic_partial_resists", classic.partial_resists ) );
   add_option( opt_bool( "log_spell_id", log_spell_id ) );
   add_option( opt_int( "desired_targets", desired_targets ) );
   add_option( opt_int( "desired_tank_targets", desired_tank_targets ) );

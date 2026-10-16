@@ -12,6 +12,10 @@
 struct spell_t : public spell_base_t
 {
 public:
+  /// Forever: classic binary spell (all-or-nothing resist, no partial resists). Set in class modules for
+  /// spells with non-damage effects (e.g. Frostbolt's slow) once confirmed in-game.
+  bool binary_resist = false;
+
   spell_t( util::string_view token, player_t* p );
   spell_t( util::string_view token, player_t* p, const spell_data_t* s );
 
@@ -21,4 +25,6 @@ public:
   double miss_chance( double hit, player_t* t ) const override;
   double composite_hit() const override;
   double composite_target_multiplier( player_t* ) const override;
+  /// Forever: average damage lost to classic partial resists against the target, 0..0.75
+  virtual double classic_average_resist( const player_t* target ) const;
 };

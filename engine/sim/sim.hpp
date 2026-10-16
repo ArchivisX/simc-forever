@@ -194,6 +194,7 @@ struct sim_t : private sc_thread_t
     bool glancing          = true;   // white melee swings vs NPCs can glance (10% + 2% per defense over 5*level)
     bool crit_suppression  = true;   // melee crit chance reduced vs higher level NPCs (4.8% vs +3)
     bool dual_wield_miss   = true;   // +19% miss on white swings while dual wielding
+    bool partial_resists   = true;   // average level-based partial resists for non-binary spells vs NPCs
   } classic;
   bool log_spell_id; // Add spell data ids to log/debug output where available. (actions, buffs)
 
