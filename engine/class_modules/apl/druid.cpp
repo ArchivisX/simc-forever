@@ -61,12 +61,18 @@ void druid( player_t* p )
     default_->add_action( "faerie_fire,if=!debuff.faerie_fire.up", "Free in Cat Form, 6 s cooldown" );
     default_->add_action( "berserk,if=energy>=40", "Talent abilities are ignored unless the talent is selected" );
     default_->add_action( "shifting_power,if=energy<=40" );
-    default_->add_action( "rip,if=combo_points>=5&!ticking&target.time_to_die>8" );
-    default_->add_action( "rake,if=!ticking&target.time_to_die>6" );
     if ( p->level() >= 32 )
-      default_->add_action( "ferocious_bite,if=combo_points>=5&dot.rip.ticking&!buff.clearcasting.up" );
+    {
+      default_->add_action( "rip,if=combo_points>=5&!ticking&target.time_to_die>8" );
+      default_->add_action( "ferocious_bite,if=combo_points>=5&(dot.rip.remains>6|target.time_to_die<8)",
+                            "Bite only while Rip is safe, otherwise pool combo points for the next Rip" );
+    }
     else
+    {
       default_->add_action( "rip,if=combo_points>=4&!ticking&target.time_to_die>6", "No Ferocious Bite before 32" );
+      default_->add_action( "rake,if=!ticking&target.time_to_die>6",
+                            "Rake has no attack power scaling; at 60 it loses to Shred and Ferocious Bite" );
+    }
     default_->add_action( "shred", "Shred is only usable from behind (position=back)" );
     default_->add_action( "claw" );
   }
