@@ -194,6 +194,7 @@ struct sim_t : private sc_thread_t
     bool glancing          = true;   // white melee swings vs NPCs can glance (10% + 2% per defense over 5*level)
     bool crit_suppression  = true;   // melee crit chance reduced vs higher level NPCs (4.8% vs +3)
     bool dual_wield_miss   = true;   // +19% miss on white swings while dual wielding
+    bool discount_on_miss  = true;   // "Discount Power On Miss" abilities cost 20% on a miss, dodge or parry
     bool partial_resists   = true;   // average level-based partial resists for non-binary spells vs NPCs
     bool vanilla_spirit_regen = false; // per-class 1.12 spirit regen instead of the measured Forever formula
     bool energy_tick       = true;   // energy arrives in 2 second server ticks (20 per tick) instead of smoothly

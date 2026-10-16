@@ -3876,6 +3876,7 @@ void sim_t::create_options()
   add_option( opt_bool( "classic_glancing", classic.glancing ) );
   add_option( opt_bool( "classic_crit_suppression", classic.crit_suppression ) );
   add_option( opt_bool( "classic_dual_wield_miss", classic.dual_wield_miss ) );
+  add_option( opt_bool( "classic_discount_on_miss", classic.discount_on_miss ) );
   add_option( opt_bool( "classic_partial_resists", classic.partial_resists ) );
   add_option( opt_bool( "classic_vanilla_spirit_regen", classic.vanilla_spirit_regen ) );
   add_option( opt_bool( "classic_energy_tick", classic.energy_tick ) );

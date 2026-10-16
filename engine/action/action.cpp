@@ -1706,6 +1706,13 @@ void action_t::consume_resource()
 
   last_resource_cost = cost();
 
+  // Forever: classic "Discount Power On Miss" (rage and energy abilities): a miss, dodge or parry costs 20%
+  if ( sim->classic.discount_on_miss && execute_state && data().flags( SX_DISCOUNT_ON_MISS ) &&
+       result_is_miss( execute_state->result ) )
+  {
+    last_resource_cost *= 0.2;
+  }
+
   player->resource_loss( cr, last_resource_cost, nullptr, this );
 
   sim->print_log("{} consumes {} {} for {} ({})",
