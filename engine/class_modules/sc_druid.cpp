@@ -277,8 +277,6 @@ struct druid_t final : public parse_player_effects_t
   double composite_melee_crit_chance() const override;
   double composite_spell_crit_chance() const override;
   double composite_spell_haste() const override;
-  double composite_melee_hit() const override;
-  double composite_spell_hit() const override;
   double composite_player_target_armor( player_t* t ) const override;
   double composite_mana_regen_while_casting() const override;
   double composite_spirit_regen_multiplier() const override;
@@ -706,11 +704,6 @@ struct balance_spell_t : public druid_spell_t
 
     requires_caster_form = true;
   }
-
-  // Cast speed (Nature's Grace). TODO: remove once spell_base_t::execute_time_pct_multiplier() is restored in the
-  // engine; it applied composite_haste() to every spell cast until b617b5ff0f removed it with Chilled Clarity.
-  double execute_time_pct_multiplier() const override
-  { return druid_spell_t::execute_time_pct_multiplier() * composite_haste(); }
 
   void impact( action_state_t* s ) override
   {
@@ -1144,6 +1137,7 @@ void druid_t::init_spells()
 
   parse_all_class_passives();
   parse_all_passive_talents();
+  parse_raid_buffs();
 
   // Sharpened Claws (Modify Critical Strike%, aura 290) is form gated by its stance mask (Cat, Bear, Dire Bear),
   // which the passive parsing ignores. Every modelled feral rotation stays in Cat Form; a Balance build that
@@ -1324,28 +1318,6 @@ double druid_t::composite_spell_haste() const
 
   if ( buff.natures_grace->check() )
     h /= 1.0 + buff.natures_grace->check_value();
-
-  return h;
-}
-
-// Nature's Reach: Modify Hit% (aura 54, effect #2) and Modify Spell Hit% (aura 55, effect #3). The engine's
-// passive parsing does not handle these player auras yet (proposed shared change in FOREVER_DRUID.md).
-double druid_t::composite_melee_hit() const
-{
-  double h = parse_player_effects_t::composite_melee_hit();
-
-  if ( talent.natures_reach.ok() )
-    h += talent.natures_reach->effectN( 2 ).percent();
-
-  return h;
-}
-
-double druid_t::composite_spell_hit() const
-{
-  double h = parse_player_effects_t::composite_spell_hit();
-
-  if ( talent.natures_reach.ok() )
-    h += talent.natures_reach->effectN( 3 ).percent();
 
   return h;
 }

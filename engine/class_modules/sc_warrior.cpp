@@ -229,6 +229,10 @@ struct warrior_t : public player_t
   // only one on next swing ability can be queued at a time
   bool next_swing_queued() const
   { return buff.heroic_strike_queued->check() || buff.cleave_queued->check(); }
+
+  // a queued on next swing ability removes the dual wield miss penalty from white swings
+  bool classic_next_swing_queued() const override
+  { return next_swing_queued(); }
 };
 
 template <class Base>
@@ -248,33 +252,6 @@ public:
 
   const warrior_t* p() const
   { return debug_cast<const warrior_t*>( this->player ); }
-
-  void consume_resource() override
-  {
-    resource_e cr = this->current_resource();
-
-    auto discountOnMiss = this->data().flags( spell_attribute::SX_DISCOUNT_ON_MISS );
-
-    if (
-        cr == RESOURCE_RAGE
-        && this->cost() > 0
-        && discountOnMiss
-        && !this->proc
-        && !this->result_is_hit( this->execute_state->result ) )
-    {
-      this->last_resource_cost = 0.2 * this->cost();
-
-      this->player->resource_loss( cr, this->last_resource_cost, nullptr, this );
-      this->stats->consume_resource( cr, this->last_resource_cost );
-
-      this->sim->print_log("{} consumes {} {} for {} ({})",
-          *this->player, this->last_resource_cost, cr, *this, this->player->resources.current[ cr ] );
-    }
-    else
-    {
-      ab::consume_resource();
-    }
-  }
 
   void impact( action_state_t* s ) override
   {
@@ -736,9 +713,6 @@ struct execute_t : public warrior_attack_t
 // TODO: Verify the swing timer behaviour on Forever.
 struct slam_t : public warrior_attack_t
 {
-  // spell attribute 81, no named spell_attribute value yet
-  static constexpr auto SX_DO_NOT_RESET_COMBAT_TIMERS = static_cast<spell_attribute>( 81u );
-
   static const spell_data_t* slam_spell( warrior_t* p )
   {
     const spell_data_t* spell = p->find_spell( max_rank( p, slam_ranks ).spell_id );
@@ -879,6 +853,7 @@ void warrior_t::init_spells()
 
   parse_all_class_passives();
   parse_all_passive_talents();
+  parse_raid_buffs();
 }
 
 action_t* warrior_t::create_action( util::string_view name, util::string_view options_str )

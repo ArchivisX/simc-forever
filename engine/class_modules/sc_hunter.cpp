@@ -386,7 +386,6 @@ struct hunter_t final : public player_t
   std::unique_ptr<expr_t> create_expression( util::string_view name ) override;
 
   double composite_melee_attack_power() const override;
-  double composite_melee_hit() const override;
   double composite_melee_auto_attack_speed() const override;
   double composite_player_multiplier( school_e ) const override;
   double composite_player_critical_damage_multiplier( const action_state_t*, school_e ) const override;
@@ -402,6 +401,9 @@ struct hunter_t final : public player_t
 
   bool pet_active() const;
   double ranged_attack_power( player_t* target ) const;
+  // a queued Raptor Strike removes the dual wield miss penalty from white swings
+  bool classic_next_swing_queued() const override
+  { return buff.raptor_strike_queued && buff.raptor_strike_queued->check(); }
   double ranged_speed_multiplier() const;
   double pet_happiness_multiplier = 1.0;  // from options.pet_happiness, set in init_base_stats
   timespan_t auto_shot_blocked_until() const;
@@ -1541,9 +1543,6 @@ void hunter_t::create_options()
 {
   player_t::create_options();
 
-  // The core has no option for the ranged slot (SLOT_RANGED = 17) yet; proposed as a shared change in
-  // FOREVER_HUNTER.md. Until then the hunter module binds "ranged=" itself.
-  add_option( opt_string( "ranged", items[ SLOT_RANGED ].options_str ) );
 
   add_option( opt_float( "ammo_dps", options.ammo_dps ) );
   add_option( opt_float( "quiver_haste", options.quiver_haste ) );
@@ -1559,14 +1558,16 @@ void hunter_t::copy_from( player_t* source )
 
 void hunter_t::init_base_stats()
 {
-  // Vanilla hunter attack power (ChrClasses: 1 AP per Str and Agi): melee Str + Agi + 2 L - 20.
-  // Ranged AP (2 Agi + 2 L - 10) is computed in ranged_attack_power().
+  // Vanilla hunter attack power (ChrClasses: 1 AP per Str and Agi): melee Str + Agi + 2 L - 20,
+  // ranged 2 Agi + 2 L - 10.
   base.attack_power_per_strength = 1.0;
   base.attack_power_per_agility  = 1.0;
 
   player_t::init_base_stats();
 
   base.stats.attack_power = 2.0 * level() - 20.0;
+  classic.ranged_attack_power += 2.0 * level() - 10.0;
+  classic.ranged_attack_power_per_agility = 2.0;
 
   // ESTIMATE (vanilla happiness): happy 125%, content 100%, unhappy 75% pet damage
   if ( util::str_compare_ci( options.pet_happiness, "happy" ) )
@@ -1630,6 +1631,7 @@ void hunter_t::init_spells()
 
   parse_all_class_passives();
   parse_all_passive_talents();
+  parse_raid_buffs();
 
   hunters_mark_value  = best_value_rank( this, hunters_mark_ranks, 2 )->effectN( 2 ).base_value();
   trueshot_aura_value = talent.trueshot_aura.ok() ? best_value_rank( this, trueshot_aura_ranks, 1 )->effectN( 1 ).base_value() : 0.0;
@@ -1895,19 +1897,6 @@ bool hunter_t::pet_active() const
   return pets.active && !pets.active->is_sleeping();
 }
 
-// Hit: the core ignores aura 54 "Modify Hit%" passives and hit rating (composite_melee_hit has the rating
-// line commented out). Class-local until the shared change lands: Surefooted (+1-3%, effect #3) and gear
-// hit rating through the client combat rating table.
-double hunter_t::composite_melee_hit() const
-{
-  double h = player_t::composite_melee_hit();
-
-  h += talent.surefooted->effectN( 3 ).percent();
-  h += composite_melee_hit_rating() / current.rating.attack_hit;
-
-  return h;
-}
-
 double hunter_t::composite_melee_attack_power() const
 {
   double ap = player_t::composite_melee_attack_power();
@@ -1916,21 +1905,17 @@ double hunter_t::composite_melee_attack_power() const
   ap += buff.aspect_of_the_falcon->check_value();
   ap += buff.furious_howl->check_value();
 
-  // Careful Aim: AP from Intellect (auras 580/598, melee and ranged), unknown to simc's parser
-  ap += talent.careful_aim->effectN( 1 ).percent() * cache.intellect();
-
   return ap;
 }
 
 double hunter_t::ranged_attack_power( player_t* t ) const
 {
-  // base.stats.attack_power holds the melee level base (2 L - 20) plus gear; ranged base is 2 L - 10
-  double ap = current.stats.attack_power + 10.0 + 2.0 * cache.agility();
+  // Base 2 L - 10, 2 per Agility, gear and Careful Aim (aura 580) come from the core
+  double ap = composite_ranged_attack_power();
 
   ap += buff.aspect_of_the_hawk->check_value();
   ap += buff.aspect_of_the_falcon->check_value();
   ap += buff.trueshot_aura->check_value();
-  ap += talent.careful_aim->effectN( 2 ).percent() * cache.intellect();
 
   if ( t )
   {
@@ -1938,7 +1923,7 @@ double hunter_t::ranged_attack_power( player_t* t ) const
       ap += td->debuff.hunters_mark->check_value();
   }
 
-  return std::round( ap * composite_attack_power_multiplier() );
+  return std::round( ap * composite_ranged_attack_power_multiplier() );
 }
 
 double hunter_t::ranged_speed_multiplier() const

@@ -508,6 +508,7 @@ void warlock_t::init_spells()
 
   parse_all_class_passives();
   parse_all_passive_talents();
+  parse_raid_buffs();
 }
 
 void warlock_t::init_action_list()

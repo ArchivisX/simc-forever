@@ -178,11 +178,9 @@ struct paladin_t final : public player_t
   std::string default_flask() const override    { return paladin_apl::flask( this ); }
   std::string default_food() const override     { return paladin_apl::food( this ); }
 
-  double composite_spell_power( school_e school ) const override;
   double composite_attack_power_multiplier() const override;
   double composite_player_multiplier( school_e school ) const override;
   double composite_melee_auto_attack_speed() const override;
-  void invalidate_cache( cache_e c ) override;
 
   paladin_td_t* get_target_data( player_t* target ) const override
   {
@@ -292,7 +290,6 @@ public:
   using base_t = paladin_action_t<Base>;
 
   bool is_holy = false;
-  double flat_crit_bonus = 0.0;
 
   template <typename... Args>
   paladin_action_t( Args&&... args ) : ab( std::forward<Args>( args )... )
@@ -300,20 +297,6 @@ public:
     // conditional buffs whose spell modifiers name the affected spells
     this->parse_effects( p()->buff.divine_favor );
     this->parse_effects( p()->buff.swift_judgement );
-
-    // Divine Precision: Holy spell hit (flat modifier property 16) is an action scoped effect
-    if ( p()->talent.divine_precision.ok() )
-      this->parse_effects( p()->talent.divine_precision.spell(), PARSE_PASSIVE );
-
-    // Holy Power: classic "Add Percent Modifier: Spell Critical Chance" adds crit chance points (+1-5% to the
-    // listed spells, +3-15% to Holy Shock and Holy Strike). parse_all_passive_talents() stores it as a retail crit
-    // chance multiplier (action_t::parse_spell_data), so turn the parsed multiplier back into additive points.
-    double crit_pct = this->player->get_passive_value( this->data(), "crit" )[ 2 ];
-    if ( crit_pct != 1.0 )
-    {
-      flat_crit_bonus += crit_pct - 1.0;
-      this->crit_chance_multiplier /= crit_pct;
-    }
   }
 
   paladin_t* p()
@@ -345,9 +328,6 @@ public:
 
     return t->debuff.judgement_of_the_crusader->check_value() * coefficient;
   }
-
-  double composite_crit_chance() const override
-  { return ab::composite_crit_chance() + flat_crit_bonus; }
 
   double bonus_da( const action_state_t* s ) const override
   {
@@ -1120,17 +1100,6 @@ void paladin_t::refresh_judgements( player_t* t )
     jotc->refresh();
 }
 
-double paladin_t::composite_spell_power( school_e school ) const
-{
-  double sp = player_t::composite_spell_power( school );
-
-  // Champion of the Light: spell damage from a percentage of Intellect (aura 174, not in the core)
-  if ( talent.champion_of_the_light.ok() )
-    sp += talent.champion_of_the_light->effectN( 1 ).percent() * cache.intellect();
-
-  return sp;
-}
-
 double paladin_t::composite_attack_power_multiplier() const
 {
   double m = player_t::composite_attack_power_multiplier();
@@ -1159,14 +1128,6 @@ double paladin_t::composite_melee_auto_attack_speed() const
     s /= 1.0 + buff.seal[ SEAL_CRUSADER ]->data().effectN( 2 ).percent();
 
   return s;
-}
-
-void paladin_t::invalidate_cache( cache_e c )
-{
-  player_t::invalidate_cache( c );
-
-  if ( c == CACHE_INTELLECT && talent.champion_of_the_light.ok() )
-    invalidate_cache( CACHE_SPELL_POWER );
 }
 
 void paladin_t::init_base_stats()
@@ -1210,10 +1171,7 @@ void paladin_t::init_spells()
 
   parse_all_class_passives();
   parse_all_passive_talents();
-
-  // Aura 174 is not in the core; Champion of the Light is applied in composite_spell_power
-  if ( talent.champion_of_the_light.ok() )
-    deregister_passive_spell( talent.champion_of_the_light.spell() );
+  parse_raid_buffs();
 }
 
 void paladin_t::init_gains()

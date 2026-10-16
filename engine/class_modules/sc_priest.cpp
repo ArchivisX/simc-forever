@@ -209,10 +209,8 @@ struct priest_t final : public parse_player_effects_t
   void init_finished() override;
   void parse_player_effects();
 
-  double composite_spell_power( school_e school ) const override;
   double composite_attribute_multiplier( attribute_e attr ) const override;
   double composite_mana_regen_while_casting() const override;
-  void invalidate_cache( cache_e c ) override;
 
   priest_td_t* get_target_data( player_t* target ) const override
   {
@@ -358,13 +356,6 @@ public:
   template <typename... Args>
   priest_action_t( Args&&... args ) : ab( std::forward<Args>( args )... )
   {
-    // Shadow Focus / Holy Precision: classic spell hit modifiers (property 16). The player-level passive parse
-    // has no hit field, so they are parsed per action.
-    if ( p()->talent.shadow_focus.ok() )
-      ab::parse_effects( p()->talent.shadow_focus.spell(), PARSE_PASSIVE );
-    if ( p()->talent.holy_precision.ok() )
-      ab::parse_effects( p()->talent.holy_precision.spell(), PARSE_PASSIVE );
-
     // Shadowform effect #5: +100% critical strike damage bonus for the whitelisted Shadow spells. The damage
     // part (A79) is parsed in priest_t::parse_player_effects, the cost part (A72) in cost_pct_multiplier.
     ab::parse_effects( p()->buff.shadowform );
@@ -481,11 +472,6 @@ struct mind_blast_t : public priest_spell_t
     priest_spell_t( "mind_blast", p, forever::max_rank_spell( p, mind_blast_ranks ) )
   {
     parse_options( options_str );
-
-    // Improved Mind Blast (A107 cooldown -0.5 s/rank) modifies the spell's cooldown, but Mind Blast also has an
-    // 8 s category cooldown, which action_t::init_spell_data prefers and no talent touches. Use the modified one.
-    if ( data().cooldown() > 0_ms && data().cooldown() < cooldown->duration )
-      cooldown->duration = data().cooldown();
   }
 
   void execute() override
@@ -969,6 +955,7 @@ void priest_t::init_spells()
 
   parse_all_class_passives();
   parse_all_passive_talents();
+  parse_raid_buffs();
 }
 
 void priest_t::create_buffs()
@@ -1043,17 +1030,6 @@ void priest_t::parse_player_effects()
   }, spell.shadow_weaving );
 }
 
-// Spiritual Guidance effect #1 (aura 174, not in the engine): spell damage +1/3/5/6/8% of total Spirit.
-// The healing part (aura 175) is not modelled (simc has a single spell power stat).
-double priest_t::composite_spell_power( school_e school ) const
-{
-  double sp = parse_player_effects_t::composite_spell_power( school );
-
-  if ( talent.spiritual_guidance.ok() )
-    sp += talent.spiritual_guidance->effectN( 1 ).percent() * cache.spirit();
-
-  return sp;
-}
 
 double priest_t::composite_attribute_multiplier( attribute_e attr ) const
 {
@@ -1081,14 +1057,6 @@ double priest_t::composite_mana_regen_while_casting() const
     r += spell.spirit_tap->effectN( 2 ).percent() * options.spirit_tap_uptime;
 
   return std::min( r, 1.0 );
-}
-
-void priest_t::invalidate_cache( cache_e c )
-{
-  parse_player_effects_t::invalidate_cache( c );
-
-  if ( c == CACHE_SPIRIT && talent.spiritual_guidance.ok() )
-    invalidate_cache( CACHE_SPELL_POWER );
 }
 
 void priest_t::init_action_list()

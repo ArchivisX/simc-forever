@@ -268,12 +268,10 @@ struct mage_t final : public parse_player_effects_t
   void init_gains() override;
   void init_procs() override;
   void init_action_list() override;
-  void invalidate_cache( cache_e ) override;
   void reset() override;
   std::unique_ptr<expr_t> create_expression( std::string_view name ) override;
   void copy_from( player_t* source ) override;
 
-  double composite_spell_power( school_e school ) const override;
   double composite_mana_regen_while_casting() const override;
   double composite_spirit_regen_multiplier() const override;
 
@@ -331,17 +329,13 @@ public:
 
     auto& b = p()->buff;
 
-    // Spell hit talents use property 16, which the passive parser ignores; parse them on the action
-    this->parse_effects( p()->talent.arcane_focus, PARSE_PASSIVE );
-    this->parse_effects( p()->talent.elemental_precision, PARSE_PASSIVE );
-
     this->parse_effects( b.arcane_power );
     this->parse_effects( b.presence_of_mind );
     this->parse_effects( b.clearcasting );
     this->parse_effects( b.missile_barrage );
     this->parse_effects( b.heating_up );
     this->parse_effects( b.combustion_crit );
-    // effect #1 (aura 174, +15% of Intellect as spell damage) is applied in mage_t::composite_spell_power
+    // effect #1 (aura 174, +15% of Intellect as spell damage) is a player effect, see mage_t::create_buffs
     this->parse_effects( b.arcane_blast, 0b1U );
 
     // Winter's Chill: aura 271 (damage taken from the caster's spells, Cone of Cold only)
@@ -611,7 +605,7 @@ struct arcane_missiles_t : public mage_spell_t
 };
 
 // Arcane Blast (11-point gold talent + trainer ranks R2-R5). Each cast adds a stack of 400573: +15% of
-// Intellect as spell damage (mage_t::composite_spell_power) and +175% Arcane Blast mana cost. The stack
+// Intellect as spell damage (aura 174, parsed in mage_t::create_buffs) and +175% Arcane Blast mana cost. The stack
 // lasts 15 s from the first application and is not refreshed.
 struct arcane_blast_t : public mage_spell_t
 {
@@ -1290,6 +1284,9 @@ void mage_t::create_buffs()
   buff.ice_armor   = make_buff( this, "ice_armor", find_spell( max_rank( this, ice_armor_ranks ).spell_id ) );
   buff.frost_armor = make_buff( this, "frost_armor", find_spell( max_rank( this, frost_armor_ranks ).spell_id ) );
 
+  // Arcane Blast effect #1: spell power from a percentage of Intellect (aura 174) per stack
+  parse_effects( buff.arcane_blast );
+
   // Improved Scorch: Fire Vulnerability is aura 270 (Fire damage taken from this mage), per stack
   if ( talent.improved_scorch.ok() )
     parse_target_effects( []( actor_target_data_t* td ) {
@@ -1318,6 +1315,7 @@ void mage_t::init_spells()
 
   parse_all_class_passives();
   parse_all_passive_talents();
+  parse_raid_buffs();
 
   auto t = [ this ]( std::string_view n ) { return find_talent_spell( talent_tree::CLASS, n ); };
 
@@ -1378,25 +1376,6 @@ void mage_t::reset()
   player_t::reset();
 
   flamestrike_area = nullptr;
-}
-
-void mage_t::invalidate_cache( cache_e c )
-{
-  player_t::invalidate_cache( c );
-
-  if ( c == CACHE_INTELLECT && buff.arcane_blast && buff.arcane_blast->check() )
-    player_t::invalidate_cache( CACHE_SPELL_POWER );
-}
-
-// Arcane Blast (aura 174): +15% of Intellect as spell damage per stack, all schools
-double mage_t::composite_spell_power( school_e school ) const
-{
-  double sp = player_t::composite_spell_power( school );
-
-  if ( buff.arcane_blast->check() )
-    sp += buff.arcane_blast->data().effectN( 1 ).percent() * buff.arcane_blast->check() * cache.intellect();
-
-  return sp;
 }
 
 // Mage Armor (50%) and Evocation (100%) keep spirit regen going while casting (aura 134, buffs)

@@ -167,7 +167,6 @@ struct shaman_t final : public player_t
   std::string default_food() const override     { return shaman_apl::food( this ); }
 
   double composite_melee_attack_power() const override;
-  void invalidate_cache( cache_e c ) override;
 
   shaman_td_t* get_target_data( player_t* target ) const override
   {
@@ -330,6 +329,7 @@ void shaman_t::init_spells()
 
   parse_all_class_passives();
   parse_all_passive_talents();
+  parse_raid_buffs();
 
   talent.mental_dexterity = find_talent_spell( talent_tree::CLASS, "Mental Dexterity" );
   talent.stormstrike      = find_talent_spell( talent_tree::CLASS, "Stormstrike" );
@@ -359,19 +359,9 @@ double shaman_t::composite_melee_attack_power() const
 {
   double ap = player_t::composite_melee_attack_power();
 
-  ap += std::floor( talent.mental_dexterity->effectN( 1 ).percent() * cache.intellect() );
-
   ap += buff.windfury_attack_power->check_value();
 
   return ap;
-}
-
-void shaman_t::invalidate_cache( cache_e c )
-{
-  player_t::invalidate_cache( c );
-
-  if ( c == CACHE_INTELLECT && talent.mental_dexterity.ok() )
-    invalidate_cache( CACHE_ATTACK_POWER );
 }
 
 // ==========================================================================

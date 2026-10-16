@@ -206,8 +206,6 @@ struct rogue_t final : public player_t
 
   double resource_regen_per_second( resource_e ) const override;
   double composite_melee_auto_attack_speed() const override;
-  double composite_melee_hit() const override;
-  double composite_spell_hit() const override;
   double composite_player_target_multiplier( player_t*, school_e ) const override;
   double composite_player_target_armor( player_t* ) const override;
 
@@ -461,26 +459,6 @@ public:
     return ab::ready();
   }
 
-  // Abilities with "Discount Power On Miss" only cost 20% of their energy on a miss, dodge or parry
-  // (vanilla rule, same as the warrior module's rage handling)
-  void consume_resource() override
-  {
-    resource_e cr = this->current_resource();
-
-    if ( cr == RESOURCE_ENERGY && this->cost() > 0 && this->data().flags( spell_attribute::SX_DISCOUNT_ON_MISS ) &&
-         !this->proc && this->execute_state && !this->result_is_hit( this->execute_state->result ) )
-    {
-      this->last_resource_cost = 0.2 * this->cost();
-
-      this->player->resource_loss( cr, this->last_resource_cost, nullptr, this );
-      this->stats->consume_resource( cr, this->last_resource_cost );
-    }
-    else
-    {
-      ab::consume_resource();
-    }
-  }
-
   void execute() override
   {
     ab::execute();
@@ -587,17 +565,6 @@ struct rogue_melee_t : public rogue_attack_t
     may_dodge         = true;
     may_parry         = true;
     special           = false;
-  }
-
-  // Dual Wield Specialization: off hand damage (aura 122, unknown to the passive parser)
-  double composite_da_multiplier( const action_state_t* s ) const override
-  {
-    double m = rogue_attack_t::composite_da_multiplier( s );
-
-    if ( weapon->slot == SLOT_OFF_HAND && p()->talent.dual_wield_specialization.ok() )
-      m *= 1.0 + p()->talent.dual_wield_specialization->effectN( 1 ).percent();
-
-    return m;
   }
 
   void impact( action_state_t* s ) override
@@ -1106,9 +1073,6 @@ struct eviscerate_t : public rogue_finisher_t<rogue_attack_t>
     per_cp( data().effectN( 1 ).pp_combo_points() )
   {
     parse_options( options_str );
-
-    // the range is applied to the base points only (base_dd_min/max), not to the combo point part
-    amount_delta = 0;
   }
 
   double base_da_min( const action_state_t* s ) const override
@@ -1549,6 +1513,7 @@ void rogue_t::init_spells()
   // Hack and Slash and Dual Wield Specialization are dummies / unknown auras, applied in code
   parse_all_class_passives();
   parse_all_passive_talents();
+  parse_raid_buffs();
 }
 
 void rogue_t::init_gains()
@@ -1726,30 +1691,6 @@ double rogue_t::composite_melee_auto_attack_speed() const
     s /= 1.0 + buff.blade_flurry->check_value();
 
   return s;
-}
-
-// Precision: melee hit (aura 54) and, in Forever, spell hit (aura 55, poisons); neither aura is parsed by the
-// engine's passive system
-double rogue_t::composite_melee_hit() const
-{
-  double h = player_t::composite_melee_hit();
-
-  if ( talent.precision.ok() )
-    h += talent.precision->effectN( 1 ).percent();
-
-  return h;
-}
-
-// The engine adds expertise to spell hit (a retail rule); a rogue's expertise (Weapon Expertise) only reduces
-// dodge and parry, so spell hit (poisons) is plain hit plus Precision.
-double rogue_t::composite_spell_hit() const
-{
-  double h = current.hit;
-
-  if ( talent.precision.ok() )
-    h += talent.precision->effectN( 2 ).percent();
-
-  return h;
 }
 
 // Murder: all damage vs Humanoid and Giant targets (aura 168, not parsed by the engine)
