@@ -214,7 +214,8 @@ struct warrior_t : public player_t
 
   struct gains_t
   {
-    gain_t* melee = nullptr;
+    gain_t* melee          = nullptr;
+    gain_t* melee_off_hand = nullptr;
   } gain;
 
   action_t* heroic_strike = nullptr;
@@ -377,8 +378,11 @@ struct warrior_melee_t : public warrior_attack_t
 
   void execute() override
   {
-    if ( trigger_next_swing( p()->heroic_strike, p()->buff.heroic_strike_queued ) ||
-         trigger_next_swing( p()->cleave, p()->buff.cleave_queued ) )
+    // on next swing abilities replace a main hand swing only
+    // TODO: in vanilla a queued on next swing ability also removes the dual wield miss penalty from off hand swings
+    if ( weapon->slot == SLOT_MAIN_HAND &&
+         ( trigger_next_swing( p()->heroic_strike, p()->buff.heroic_strike_queued ) ||
+           trigger_next_swing( p()->cleave, p()->buff.cleave_queued ) ) )
       return;
 
     warrior_attack_t::execute();
@@ -391,7 +395,8 @@ struct warrior_melee_t : public warrior_attack_t
     if ( result_is_hit( s->result ) )
     {
       double mult = s->result == RESULT_CRIT ? 2.0 : 1.0;
-      p()->resource_gain( RESOURCE_RAGE, mult * p()->rage_per_swing( *weapon ), p()->gain.melee, this );
+      p()->resource_gain( RESOURCE_RAGE, mult * p()->rage_per_swing( *weapon ),
+                          weapon->slot == SLOT_OFF_HAND ? p()->gain.melee_off_hand : p()->gain.melee, this );
     }
   }
 };
@@ -408,11 +413,19 @@ struct warrior_auto_attack_t : public warrior_attack_t
     assert( p->equipped_weapons[ SLOT_MAIN_HAND ].type != WEAPON_NONE );
 
     p->main_hand_attack = new warrior_melee_t( "melee", p, &p->equipped_weapons[ SLOT_MAIN_HAND ] );
+
+    // the off hand penalty (50% damage) is applied by the engine for any SLOT_OFF_HAND weapon
+    if ( p->equipped_weapons[ SLOT_OFF_HAND ].type != WEAPON_NONE )
+      p->off_hand_attack = new warrior_melee_t( "melee_off_hand", p, &p->equipped_weapons[ SLOT_OFF_HAND ] );
   }
 
   void execute() override
   {
-    player->main_hand_attack->schedule_execute();
+    if ( player->main_hand_attack->execute_event == nullptr )
+      player->main_hand_attack->schedule_execute();
+
+    if ( player->off_hand_attack && player->off_hand_attack->execute_event == nullptr )
+      player->off_hand_attack->schedule_execute();
   }
 
   bool ready() override
@@ -421,7 +434,8 @@ struct warrior_auto_attack_t : public warrior_attack_t
     {
       return false;
     }
-    return player->main_hand_attack->execute_event == nullptr;
+    return player->main_hand_attack->execute_event == nullptr ||
+           ( player->off_hand_attack && player->off_hand_attack->execute_event == nullptr );
   }
 };
 
@@ -429,6 +443,10 @@ double warrior_t::rage_per_swing( const weapon_t& w ) const
 {
   // log observations on low level warrior
   double mult = w.group() == WEAPON_2H ? 4.5 : 3.45;
+  // 2026-10-16: off hand swings are assumed to generate half, like the vanilla hit factor (1.75 vs 3.5).
+  // Not measured on Forever yet.
+  if ( w.slot == SLOT_OFF_HAND )
+    mult *= 0.5;
   return w.swing_time.total_seconds() * mult;
 }
 
@@ -799,7 +817,8 @@ void warrior_t::init_gains()
 {
   player_t::init_gains();
 
-  gain.melee = get_gain( "melee" );
+  gain.melee          = get_gain( "melee" );
+  gain.melee_off_hand = get_gain( "melee_off_hand" );
 }
 
 void warrior_t::create_actions()
