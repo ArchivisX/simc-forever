@@ -1707,10 +1707,10 @@ void hunter_t::create_buffs()
   buff.rapid_recuperation = make_buff( this, "rapid_recuperation", find_spell( RAPID_RECUP_BUFF ) )
                               ->set_default_value( talent.rapid_recuperation->effectN( 1 ).percent() );
 
-  // Resourcefulness: on melee/ranged ability crits, 50/100% chance (effect #2) of 50/100% (effect #3) regen
-  // while casting for 30 s
+  // Resourcefulness: on melee/ranged ability crits, 50/100% chance (talent effect #2) of 50% regen while casting
+  // (1242688 effect #1, aura 134) for 30 s. The trait's third curve has no spell effect to land on.
   buff.resourcefulness = make_buff( this, "resourcefulness", find_spell( RESOURCEFUL_BUFF ) )
-                           ->set_default_value( talent.resourcefulness->effectN( 3 ).percent() )
+                           ->set_default_value_from_effect_type( A_MOD_MANA_REGEN_INTERRUPT )
                            ->set_chance( talent.resourcefulness->effectN( 2 ).percent() );
 
   buff.raptor_strike_queued = make_buff( this, "raptor_strike_queued" );
