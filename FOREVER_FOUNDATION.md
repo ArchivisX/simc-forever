@@ -128,8 +128,35 @@ base value: min/max = avg·(1 ∓ delta/2). Shadow Bolt R10 is 268 ± 5.5%. simc
 `average_range=1`, which always rolls the average; pass `average_range=0` to see ranges.
 
 **Report.** Landed zero-damage DoT applications are recorded, so the Miss/Dodge % of Rend or Corruption
-is now of all attempts. Spell hit/miss talents (Add Flat Modifier property 16) are parsed into
-`hit_chance_effects`.
+is now of all attempts.
+
+## 3a. Shared engine fixes (branch `shared-fixes`, 2026-10-16)
+
+All of these work through `parse_all_class_passives()` / `parse_all_passive_talents()` and `parse_effects()`.
+Don't re-implement them in a class module.
+
+| What | Where |
+|---|---|
+| Hit rating from gear (item mod 31) counts, 10 rating = 1% at every level (client combat rating table). | `player_t::composite_melee_hit/composite_spell_hit` |
+| Spell hit no longer includes expertise (a retail rule). | `player_t::composite_spell_hit` |
+| Aura 54 (melee and ranged hit) and aura 55 (spell hit) passives: `classic.melee_hit/spell_hit`. Buffs with them work through `parse_effects()` on a `parse_player_effects_t` class. | passive parser, `parse_player_effects_t` |
+| Add Flat Modifier property 16 (Arcane Focus, Shadow Focus, Precision, Suppression, ...) is the action's `base_hit` for every affected spell. Don't call `parse_effects( talent, PARSE_PASSIVE )` for these any more. | passive parser, `action_t::parse_spell_data` |
+| Add Percent Modifier: Critical Chance (Holy Power) adds percentage points, like the flat one. Same in `parse_effects()`. | passive parser, `parse_effects` |
+| Aura 174 (spell power from % of a stat, all magic schools) for passives and buffs (Arcane Blast). Aura 598 (melee AP) and 580/212 (ranged AP) from % of a stat for passives. | `classic.*_per_attribute`, `parse_player_effects_t::composite_spell_power` |
+| Aura 122 (off hand damage %, Dual Wield Specialization). | `action_t::calculate_direct_amount` |
+| Passives that require a weapon type only apply when one is equipped (two-hander and axe specializations). Passives meant only for one weapon's attacks (Wand Specialization) still need the module. | `player_t::parse_passive_effects` |
+| `average_range=0` no longer applies a classic Variance twice. | `action_t::parse_effect_direct_mods` |
+| Spell cast times are hasted again (`spell_base_t::execute_time_pct_multiplier`). | `action/spell.cpp` |
+| A cooldown talent (property 11) also changes an equal category cooldown, so `charge_cooldown()` keeps it. | passive parser |
+| Talent curves skip effects missing from the spell (sparse effect lists). Passive effect overrides no longer add Real Points Per Level twice. | `player_t::init_talents`, `register_passive_effect` |
+| A selected trait's spell is known at any level (Stormstrike 17364 at L20). | `player_talent_t` |
+| Every class defaults to its single spec, so `talents=` hashes export (`save=`) and import for every class. The HTML talent grid sizes itself to the selected traits. | `player_t::player_t`, `report_html_player.cpp` |
+| `ranged=` item slot option. Item mod 39 (ranged AP) is ranged only. `player_t::composite_ranged_attack_power()` = gear/buff AP + `classic.ranged_attack_power` (class base, set it in `init_base_stats`) + `classic.ranged_attack_power_per_agility` × Agi + aura 580/212 stat conversions. Multiply it by `composite_ranged_attack_power_multiplier()` (aura 167 passives), not the melee AP multiplier. | `player_t` |
+| Classic "Discount Power On Miss": a miss, dodge or parry costs 20% (`classic_discount_on_miss=1`). | `action_t::consume_resource` |
+| `player_t::classic_next_swing_queued()`: return true while an on next swing ability is queued, and the 19% dual wield miss is skipped. | `attack_t::miss_chance` |
+| Raid buffs (`optimal_raid`, `override.*`) are flat best-rank-for-level stats: Arcane Intellect, Mark of the Wild, Power Word: Fortitude, Battle Shout (melee AP). The casting class is skipped (its own buff applies). Call `parse_raid_buffs()` at the end of `init_spells()`, as retail modules do. | `player_t::parse_raid_buffs` |
+| Classic AP multipliers no longer multiply the weapon damage roll. | `action_t::calculate_weapon_damage` |
+| `SX_DO_NOT_RESET_COMBAT_TIMERS` (81), `SX_DONT_RESET_SWING_IF_INSTANT` (217). | `data_enums.hh` |
 
 ## 3b. What the existing classes now have (examples to copy)
 
@@ -179,7 +206,6 @@ Rows ≤30 will be replaced by beta measurements and rows 31–60 by measured la
 - Not implemented:
   - Racial weapon skill
   - Touch of the Grave (disabled upstream: wrong spell id)
-  - Aura 174 (spell damage from % of a stat)
   - Combo points on the target (simc's are on the player; this only matters when switching targets)
   - Auto Shot clipping and ammo
   - Temporary-enchant procs (poisons)
