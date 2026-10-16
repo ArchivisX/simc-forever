@@ -72,6 +72,25 @@ constexpr std::array bane_of_agony_ranks {
   spell_rank_t{ 11713 },  // 58
 };
 
+constexpr std::array searing_pain_ranks {
+  spell_rank_t{ 5676 },   // 18
+  spell_rank_t{ 17919 },  // 26
+  spell_rank_t{ 17920 },  // 34
+  spell_rank_t{ 17921 },  // 42
+  spell_rank_t{ 17922 },  // 50
+  spell_rank_t{ 17923 },  // 58
+};
+
+// The 403677-403689 "Drain Life" ranks are Season of Discovery leftovers (15 s duration), not the trainer spell
+constexpr std::array drain_life_ranks {
+  spell_rank_t{ 689 },    // 14
+  spell_rank_t{ 699 },    // 22
+  spell_rank_t{ 709 },    // 30
+  spell_rank_t{ 7651 },   // 38
+  spell_rank_t{ 11699 },  // 46
+  spell_rank_t{ 11700 },  // 54
+};
+
 constexpr std::array life_tap_ranks {
   spell_rank_t{ 1454 },   // 6
   spell_rank_t{ 1455 },   // 16
@@ -191,6 +210,31 @@ struct corruption_t : public warlock_spell_t
     warlock_spell_t( "corruption", player, player->find_spell( max_rank( player, corruption_ranks ).spell_id ) )
   {
     parse_options( options_str );
+  }
+};
+
+// Searing Pain
+
+struct searing_pain_t : public warlock_spell_t
+{
+  searing_pain_t( warlock_t* player, util::string_view options_str ) :
+    warlock_spell_t( "searing_pain", player, player->find_spell( max_rank( player, searing_pain_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+  }
+};
+
+// Drain Life
+// Channeled Periodic Health Leech, ticking every second. The heal to the warlock is not modelled.
+
+struct drain_life_t : public warlock_spell_t
+{
+  drain_life_t( warlock_t* player, util::string_view options_str ) :
+    warlock_spell_t( "drain_life", player, player->find_spell( max_rank( player, drain_life_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+
+    channeled = true;
   }
 };
 
@@ -404,6 +448,10 @@ action_t* warlock_t::create_action( util::string_view name, util::string_view op
   if ( name == "corruption" )
     return new corruption_t( this, options_str );
 
+  if ( name == "searing_pain" )
+    return new searing_pain_t( this, options_str );
+  if ( name == "drain_life" )
+    return new drain_life_t( this, options_str );
   if ( name == "bane_of_agony" || name == "curse_of_agony" )
     return new bane_of_agony_t( this, options_str );
   if ( name == "life_tap" )
