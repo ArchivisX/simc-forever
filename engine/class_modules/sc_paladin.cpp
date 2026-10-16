@@ -671,8 +671,6 @@ struct judgement_t : public paladin_spell_t
     // the spell has no Start Recovery Category data, it is off the global cooldown
     trigger_gcd = 0_ms;
     use_off_gcd = true;
-
-    p->judgement_cd = cooldown;
   }
 
   bool ready() override
@@ -750,8 +748,7 @@ struct swift_judgement_t : public paladin_self_spell_t
   {
     paladin_self_spell_t::execute();
 
-    if ( p()->judgement_cd )
-      p()->judgement_cd->reset( true );
+    p()->judgement_cd->reset( true );
     p()->buff.swift_judgement->trigger();
   }
 };
@@ -1302,6 +1299,7 @@ void paladin_t::create_buffs()
 void paladin_t::create_actions()
 {
   seal_of_command_icd = get_cooldown( "seal_of_command_icd" );
+  judgement_cd        = get_cooldown( "judgement" );
 
   // Seal procs and Judgements, from the best known rank of each seal
   const spell_data_t* sor  = max_rank_spell( this, seal_of_righteousness_ranks );
