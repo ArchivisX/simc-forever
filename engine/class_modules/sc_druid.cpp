@@ -719,6 +719,11 @@ struct balance_spell_t : public druid_spell_t
     requires_caster_form = true;
   }
 
+  // Cast speed (Nature's Grace). TODO: remove once spell_base_t::execute_time_pct_multiplier() is restored in the
+  // engine; it applied composite_haste() to every spell cast until b617b5ff0f removed it with Chilled Clarity.
+  double execute_time_pct_multiplier() const override
+  { return druid_spell_t::execute_time_pct_multiplier() * composite_haste(); }
+
   void impact( action_state_t* s ) override
   {
     druid_spell_t::impact( s );
@@ -752,14 +757,14 @@ struct starfire_t : public balance_spell_t
     : balance_spell_t( "starfire", p, p->find_spell( max_rank( p, starfire_ranks ).spell_id ), options_str )
   {}
 
-  timespan_t execute_time() const override
+  timespan_t execute_time_flat_modifier() const override
   {
-    timespan_t t = balance_spell_t::execute_time();
+    timespan_t t = balance_spell_t::execute_time_flat_modifier();
 
     if ( p()->buff.eclipse->check() )
-      t += timespan_t::from_millis( p()->talent.eclipse->effectN( 2 ).base_value() ) * composite_haste();
+      t += timespan_t::from_millis( p()->talent.eclipse->effectN( 2 ).base_value() );
 
-    return std::max( t, 0_ms );
+    return t;
   }
 
   void execute() override
@@ -1334,7 +1339,7 @@ double druid_t::composite_spell_haste() const
   double h = parse_player_effects_t::composite_spell_haste();
 
   if ( buff.natures_grace->check() )
-    h /= 1.0 + buff.natures_grace->check_value() / 100.0;
+    h /= 1.0 + buff.natures_grace->check_value();
 
   return h;
 }
