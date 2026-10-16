@@ -983,8 +983,6 @@ struct hunter_melee_t : public hunter_attack_t
     if ( p()->talent.deadly_aspects.ok() && p()->buff.aspect_of_the_falcon->check() )
       p()->buff.quick_strikes->trigger( 1, buff_t::DEFAULT_VALUE(), p()->talent.deadly_aspects->effectN( 1 ).percent() );
 
-    p()->trigger_expose_prey( s );
-
     if ( p()->buff.aspect_of_the_viper->check() )
       p()->resource_gain( RESOURCE_MANA,
                           forever::base_mana( p() ) * VIPER_MANA_PER_SPEED * weapon->swing_time.total_seconds(),
@@ -1470,10 +1468,11 @@ struct mongoose_bite_t : public hunter_attack_t
     return hunter_attack_t::ready();
   }
 
+  // consume the activation first: the bite's own hit may proc a new Expose Prey (Yellow Melee)
   void execute() override
   {
-    hunter_attack_t::execute();
     p()->buff.expose_prey->expire();
+    hunter_attack_t::execute();
   }
 
   void impact( action_state_t* s ) override
