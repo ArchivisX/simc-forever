@@ -134,6 +134,11 @@ struct warlock_t final : public player_t
     gain_t* life_tap = nullptr;
   } gain;
 
+  struct talents_t
+  {
+    player_talent_t improved_life_tap;
+  } talent;
+
   struct pets_t
   {
     pet_t* imp = nullptr;
@@ -270,8 +275,11 @@ struct bane_of_agony_t : public warlock_spell_t
 
 // Life Tap
 // Converts health into mana. The amount is the Dummy effect (base + points per level up to the rank's max
-// level), and the health cost equals the mana gained. No spell power scaling in the client data
-// (2026-10-16). The spell has "Don't Block Mana Regen", and gaining mana never starts the five second rule.
+// level), and the health cost equals it. No spell power scaling in the client data (2026-10-16). The spell
+// has "Don't Block Mana Regen", and gaining mana never starts the five second rule.
+// The data's health cost is 0%, so the Dummy amount is used as the health cost: Life Tap is not usable
+// without that much health (incoming healing is not modelled). Improved Life Tap (Dummy, per rank percent
+// from the trait curve) increases the mana only.
 
 struct life_tap_t : public warlock_spell_t
 {
@@ -284,16 +292,18 @@ struct life_tap_t : public warlock_spell_t
     may_miss = false;
     may_crit = false;
     target   = player;
+
+    resource_current               = RESOURCE_HEALTH;
+    base_costs[ RESOURCE_HEALTH ] = data().effectN( 1 ).average( player );
   }
 
   void execute() override
   {
     warlock_spell_t::execute();
 
-    double amount = data().effectN( 1 ).average( player );
+    double mana = data().effectN( 1 ).average( player ) * ( 1.0 + p()->talent.improved_life_tap->effectN( 1 ).percent() );
 
-    p()->resource_loss( RESOURCE_HEALTH, amount, nullptr, this );
-    p()->resource_gain( RESOURCE_MANA, amount, p()->gain.life_tap, this );
+    p()->resource_gain( RESOURCE_MANA, mana, p()->gain.life_tap, this );
   }
 };
 
@@ -381,6 +391,11 @@ namespace pets {
 
       resource_e primary_resource() const override { return RESOURCE_MANA; }
 
+      // TODO: figure this out - probably another table of int/mana at every level
+      // fit to obsevations level 3-8 but starts to break down at level 9
+      static double base_mana( int level )
+      { return std::floor( 29 + 9.5 * level ); }
+
       // copies owner's crit which matches imp char sheet
       double pet_crit() const override
       { return current_pet_stats.composite_spell_crit; }
@@ -393,10 +408,9 @@ namespace pets {
         }
 
         // TODO - this is at level 7, probably need a table for this
-        // 2026-10-16: above level 10 scale it with the imp's max mana (124 at level 10, see init_base_stats)
+        // 2026-10-16: above level 10 scale it with the imp's max mana (124 at level 10)
         // so higher level imps don't run dry after a few casts. Levels <= 10 are unchanged. Unverified.
-        double level10_mana = std::floor( 29 + 9.5 * 10 );
-        double scale        = std::max( 1.0, resources.max[ RESOURCE_MANA ] / level10_mana );
+        double scale = std::max( 1.0, resources.max[ RESOURCE_MANA ] / base_mana( 10 ) );
         return ( recent_cast() ? 1.65 : 2.73 ) * scale;
       }
 
@@ -404,10 +418,7 @@ namespace pets {
       {
         warlock_pet_t::init_base_stats();
 
-        // TODO: figure this out - probably another table of int/mana at every level
-        // fit to obsevations level 3-8 but starts to break down at level 9
-        double mana = 29 + (9.5 * level());
-        resources.base[ RESOURCE_MANA ] = std::floor(mana);
+        resources.base[ RESOURCE_MANA ] = base_mana( level() );
       }
 
       void init_action_list() override
@@ -492,6 +503,8 @@ void warlock_t::init_base_stats()
 void warlock_t::init_spells()
 {
   player_t::init_spells();
+
+  talent.improved_life_tap = find_talent_spell( talent_tree::CLASS, "Improved Life Tap" );
 
   parse_all_class_passives();
   parse_all_passive_talents();

@@ -109,8 +109,8 @@ constexpr std::array execute_ranks {
   spell_rank_t{ 20662 },
 };
 
-// 2026-10-16: Forever's rank 1 is a new level 20 spell; 1310196-1310200 are a second copy of the ranks
-// that is not in the warrior SkillLineAbility list, so we use the ids the trainer teaches.
+// 2026-10-16: Forever's rank 1 is a new level 20 spell. 1310196-1310200 are the Improved Slam versions
+// of these ranks (see slam_t), not taught by the trainer.
 constexpr std::array slam_ranks {
   spell_rank_t{ 1240193 },
   spell_rank_t{ 1464 },
@@ -193,6 +193,8 @@ struct warrior_t : public player_t
     // Row 1
     player_talent_t deflection;
 
+    player_talent_t improved_slam;
+
     // Row 7
     player_talent_t mortal_strike;
 
@@ -214,7 +216,8 @@ struct warrior_t : public player_t
 
   struct gains_t
   {
-    gain_t* melee = nullptr;
+    gain_t* melee          = nullptr;
+    gain_t* melee_off_hand = nullptr;
   } gain;
 
   action_t* heroic_strike = nullptr;
@@ -377,8 +380,11 @@ struct warrior_melee_t : public warrior_attack_t
 
   void execute() override
   {
-    if ( trigger_next_swing( p()->heroic_strike, p()->buff.heroic_strike_queued ) ||
-         trigger_next_swing( p()->cleave, p()->buff.cleave_queued ) )
+    // on next swing abilities replace a main hand swing only
+    // TODO: in vanilla a queued on next swing ability also removes the dual wield miss penalty from off hand swings
+    if ( weapon->slot == SLOT_MAIN_HAND &&
+         ( trigger_next_swing( p()->heroic_strike, p()->buff.heroic_strike_queued ) ||
+           trigger_next_swing( p()->cleave, p()->buff.cleave_queued ) ) )
       return;
 
     warrior_attack_t::execute();
@@ -391,7 +397,8 @@ struct warrior_melee_t : public warrior_attack_t
     if ( result_is_hit( s->result ) )
     {
       double mult = s->result == RESULT_CRIT ? 2.0 : 1.0;
-      p()->resource_gain( RESOURCE_RAGE, mult * p()->rage_per_swing( *weapon ), p()->gain.melee, this );
+      p()->resource_gain( RESOURCE_RAGE, mult * p()->rage_per_swing( *weapon ),
+                          weapon->slot == SLOT_OFF_HAND ? p()->gain.melee_off_hand : p()->gain.melee, this );
     }
   }
 };
@@ -408,11 +415,19 @@ struct warrior_auto_attack_t : public warrior_attack_t
     assert( p->equipped_weapons[ SLOT_MAIN_HAND ].type != WEAPON_NONE );
 
     p->main_hand_attack = new warrior_melee_t( "melee", p, &p->equipped_weapons[ SLOT_MAIN_HAND ] );
+
+    // the off hand penalty (50% damage) is applied by the engine for any SLOT_OFF_HAND weapon
+    if ( p->equipped_weapons[ SLOT_OFF_HAND ].type != WEAPON_NONE )
+      p->off_hand_attack = new warrior_melee_t( "melee_off_hand", p, &p->equipped_weapons[ SLOT_OFF_HAND ] );
   }
 
   void execute() override
   {
-    player->main_hand_attack->schedule_execute();
+    if ( player->main_hand_attack->execute_event == nullptr )
+      player->main_hand_attack->schedule_execute();
+
+    if ( player->off_hand_attack && player->off_hand_attack->execute_event == nullptr )
+      player->off_hand_attack->schedule_execute();
   }
 
   bool ready() override
@@ -421,7 +436,8 @@ struct warrior_auto_attack_t : public warrior_attack_t
     {
       return false;
     }
-    return player->main_hand_attack->execute_event == nullptr;
+    return player->main_hand_attack->execute_event == nullptr ||
+           ( player->off_hand_attack && player->off_hand_attack->execute_event == nullptr );
   }
 };
 
@@ -429,6 +445,10 @@ double warrior_t::rage_per_swing( const weapon_t& w ) const
 {
   // log observations on low level warrior
   double mult = w.group() == WEAPON_2H ? 4.5 : 3.45;
+  // 2026-10-16: off hand swings are assumed to generate half, like the vanilla hit factor (1.75 vs 3.5).
+  // Not measured on Forever yet.
+  if ( w.slot == SLOT_OFF_HAND )
+    mult *= 0.5;
   return w.swing_time.total_seconds() * mult;
 }
 
@@ -480,10 +500,10 @@ struct rend_t : public warrior_attack_t
 struct next_swing_queue_t : public action_t
 {
   action_t* ability;
-  buff_t* warrior_t::buffs_t::*queued;
+  buff_t* queued;
 
   next_swing_queue_t( warrior_t* p, util::string_view name, util::string_view options_str, action_t* ability,
-                      buff_t* warrior_t::buffs_t::*queued )
+                      buff_t* queued )
     : action_t( ACTION_OTHER, name, p ), ability( ability ), queued( queued )
   {
     parse_options( options_str );
@@ -515,7 +535,7 @@ struct next_swing_queue_t : public action_t
 
   void execute() override
   {
-    ( p()->buff.*queued )->trigger();
+    queued->trigger();
   }
 };
 
@@ -556,9 +576,9 @@ struct cleave_t : public warrior_attack_t
   }
 };
 
-// Up to max targets (4) from the spell data, normalized weapon damage.
-// TODO: Only the main hand is modelled (the spell hits with both weapons). Stances are not modelled
-// (Whirlwind needs Berserker Stance).
+// Up to max targets (4) from the spell data, normalized main hand weapon damage (the spell has a single
+// weapon damage effect, so no off hand strike as in later expansions).
+// TODO: Stances are not modelled (Whirlwind needs Berserker Stance).
 struct whirlwind_t : public warrior_attack_t
 {
   whirlwind_t( warrior_t* player, util::string_view options_str ) :
@@ -671,11 +691,9 @@ struct execute_t : public warrior_attack_t
 
     const auto& dmg = data().effectN( 1 );
     base_dd_min = base_dd_max = dmg.base_value();
-    rage_damage = dmg.chain_multiplier() * RAGE_UNITS_PER_RAGE;
+    // client rage is stored in tenths of a point (power type display multiplier 0.1)
+    rage_damage = dmg.chain_multiplier() / power_type_data_t::multiplier( RESOURCE_RAGE );
   }
-
-  // client rage is stored in tenths of a point
-  static constexpr double RAGE_UNITS_PER_RAGE = 10.0;
 
   bool target_ready( player_t* candidate_target ) override
   {
@@ -711,13 +729,31 @@ struct execute_t : public warrior_attack_t
 };
 
 // Slam has a cast time (and in Forever an 18 s cooldown) from the spell data.
-// 2026-10-16: In vanilla, finishing a Slam restarts the main hand swing timer; we model that. The
-// swing timer pausing during the cast is not modelled, so a white swing may still land mid-cast.
-// TODO: Verify both on Forever.
+// 2026-10-16: Forever's Improved Slam replaces the known rank with a copy (Override Action Spell effects:
+// misc value = the replaced rank, base value = the replacement) that has "Do Not Reset Combat Timers"; the
+// trainer ranks restart the main hand swing timer when the cast finishes, as in vanilla. The swing timer
+// pausing during the cast is not modelled, so a white swing may still land mid-cast.
+// TODO: Verify the swing timer behaviour on Forever.
 struct slam_t : public warrior_attack_t
 {
+  // spell attribute 81, no named spell_attribute value yet
+  static constexpr auto SX_DO_NOT_RESET_COMBAT_TIMERS = static_cast<spell_attribute>( 81u );
+
+  static const spell_data_t* slam_spell( warrior_t* p )
+  {
+    const spell_data_t* spell = p->find_spell( max_rank( p, slam_ranks ).spell_id );
+
+    for ( const auto& eff : p->talent.improved_slam->effects() )
+    {
+      if ( eff.subtype() == A_OVERRIDE_ACTION_SPELL && as<unsigned>( eff.misc_value1() ) == spell->id() )
+        return p->find_spell( as<unsigned>( eff.base_value() ) );
+    }
+
+    return spell;
+  }
+
   slam_t( warrior_t* player, util::string_view options_str ) :
-    warrior_attack_t( "slam", player, player->find_spell( max_rank( player, slam_ranks ).spell_id ) )
+    warrior_attack_t( "slam", player, slam_spell( player ) )
   {
     parse_options( options_str );
   }
@@ -725,6 +761,9 @@ struct slam_t : public warrior_attack_t
   void execute() override
   {
     warrior_attack_t::execute();
+
+    if ( data().flags( SX_DO_NOT_RESET_COMBAT_TIMERS ) )
+      return;
 
     action_t* swing = player->main_hand_attack;
     if ( swing && swing->execute_event )
@@ -799,7 +838,8 @@ void warrior_t::init_gains()
 {
   player_t::init_gains();
 
-  gain.melee = get_gain( "melee" );
+  gain.melee          = get_gain( "melee" );
+  gain.melee_off_hand = get_gain( "melee_off_hand" );
 }
 
 void warrior_t::create_actions()
@@ -833,6 +873,7 @@ void warrior_t::init_spells()
 {
   player_t::init_spells();
 
+  talent.improved_slam = find_talent_spell( talent_tree::CLASS, "Improved Slam" );
   talent.mortal_strike = find_talent_spell( talent_tree::CLASS, "Mortal Strike" );
   talent.bloodthirst   = find_talent_spell( talent_tree::CLASS, "Bloodthirst" );
 
@@ -850,9 +891,9 @@ action_t* warrior_t::create_action( util::string_view name, util::string_view op
 
   if ( name == "rend" ) return new rend_t( this, options_str );
   if ( name == "heroic_strike" )
-    return new next_swing_queue_t( this, "heroic_strike_queue", options_str, heroic_strike, &buffs_t::heroic_strike_queued );
+    return new next_swing_queue_t( this, "heroic_strike_queue", options_str, heroic_strike, buff.heroic_strike_queued );
   if ( name == "cleave" )
-    return new next_swing_queue_t( this, "cleave_queue", options_str, cleave, &buffs_t::cleave_queued );
+    return new next_swing_queue_t( this, "cleave_queue", options_str, cleave, buff.cleave_queued );
   if ( name == "whirlwind" ) return new whirlwind_t( this, options_str );
   if ( name == "sunder_armor" ) return new sunder_armor_t( this, options_str );
 

@@ -46,6 +46,7 @@ void shaman( player_t* p )
   default_->add_action( "stormstrike", "Talent; also makes the next Earth Shock hit harder" );
   default_->add_action( "flame_shock,if=!ticking|remains<1" );
   default_->add_action( "earth_shock,if=dot.flame_shock.ticking|!action.flame_shock.enabled" );
+  default_->add_action( "lightning_bolt,if=!action.stormstrike.enabled", "Without Stormstrike, fill with Lightning Bolt" );
 }
 //shaman_apl_end
 }  // namespace shaman_apl
