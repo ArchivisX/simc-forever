@@ -819,6 +819,11 @@ void action_t::parse_effect_direct_mods( const spelleffect_data_t& spelleffect_d
   attack_power_mod.direct = spelleffect_data.ap_coeff();
   amount_delta            = spelleffect_data.m_delta();
 
+  // Forever: classic effects have no scaling class and their min/max already span the Variance (see
+  // spelleffect_data_t::delta), so the damage roll must not widen the range a second time
+  if ( spelleffect_data.scaling_class() == PLAYER_NONE && spelleffect_data.m_coefficient() == 0 )
+    amount_delta = 0;
+
   if ( !item_scaling )
   {
     base_dd_min = spelleffect_data.min( player, player->level() );
