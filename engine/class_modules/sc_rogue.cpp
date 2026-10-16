@@ -24,13 +24,6 @@ struct mutilate_rank_t
   unsigned oh_id;     // off hand hit
 };
 
-// Temporary weapon enchant: the proc spell, and the item enchantment that holds the proc chance
-struct poison_rank_t
-{
-  unsigned spell_id;
-  unsigned enchant_id;
-};
-
 constexpr std::array sinister_strike_ranks {
   spell_rank_t{ 1752 },
   spell_rank_t{ 1757 },
@@ -122,27 +115,24 @@ constexpr std::array mutilate_ranks {
   mutilate_rank_t{ 1241584, 1241586, 1241590 },
 };
 
-// Proc spells and item enchantments (SpellItemEnchantment rows) from simc's 70425 data
+// Poison application spells (the temporary weapon enchant). Their proc chance is in the spell data (Improved
+// Poisons is parsed into it), and effect #1 (type 360) names the item enchantment whose spell is the proc.
 constexpr std::array instant_poison_ranks {
-  poison_rank_t{  8680, 323 },
-  poison_rank_t{  8685, 324 },
-  poison_rank_t{  8689, 325 },
-  poison_rank_t{ 11335, 623 },
-  poison_rank_t{ 11336, 624 },
-  poison_rank_t{ 11337, 625 },
+  spell_rank_t{  8679 },
+  spell_rank_t{  8686 },
+  spell_rank_t{  8688 },
+  spell_rank_t{ 11338 },
+  spell_rank_t{ 11339 },
+  spell_rank_t{ 11340 },
 };
 
 constexpr std::array deadly_poison_ranks {
-  poison_rank_t{  2818,    7 },
-  poison_rank_t{  2819,    8 },
-  poison_rank_t{ 11353,  626 },
-  poison_rank_t{ 11354,  627 },
-  poison_rank_t{ 25349, 2630 },
+  spell_rank_t{  2823 },
+  spell_rank_t{  2824 },
+  spell_rank_t{ 11355 },
+  spell_rank_t{ 11356 },
+  spell_rank_t{ 25351 },
 };
-
-// Proc chances used if the item enchantment row is missing (vanilla values, same as the 70425 rows)
-constexpr double instant_poison_fallback_chance = 0.20;
-constexpr double deadly_poison_fallback_chance  = 0.30;
 
 // Duration per combo point; only the 1 point base duration (6 s) is in the spell data, the per point part is
 // in the tooltips (Slice and Dice / Venom 9-21 s, Rupture 8-16 s).
@@ -170,6 +160,7 @@ poison_e parse_poison( util::string_view s )
 }
 
 struct rogue_t;
+struct rogue_poison_t;
 
 struct rogue_td_t : public actor_target_data_t
 {
@@ -341,8 +332,8 @@ struct rogue_t final : public player_t
   poison_e mh_poison = poison_e::NONE;
   poison_e oh_poison = poison_e::NONE;
 
-  action_t* instant_poison       = nullptr;
-  action_t* deadly_poison        = nullptr;
+  rogue_poison_t* instant_poison = nullptr;
+  rogue_poison_t* deadly_poison  = nullptr;
   action_t* hack_and_slash_swing = nullptr;
   action_t* blade_flurry_attack  = nullptr;
 
@@ -690,25 +681,43 @@ struct blade_flurry_attack_t : public rogue_attack_t
 // Poisons
 // ==========================================================================
 
-struct instant_poison_t : public rogue_spell_t
+// The proc of a poison application spell: its effect #1 (type 360) names the item enchantment, whose spell is the proc
+const spell_data_t* poison_proc_spell( const rogue_t* p, const spell_data_t* application )
 {
-  instant_poison_t( rogue_t* p ) :
-    rogue_spell_t( "instant_poison", p, p->find_spell( max_rank( p, instant_poison_ranks ).spell_id ) )
+  if ( !application->ok() )
+    return spell_data_t::not_found();
+
+  const auto& enchant = p->dbc->item_enchantment( as<unsigned>( application->effectN( 1 ).misc_value1() ) );
+  return p->find_spell( enchant.ench_prop[ 0 ] );
+}
+
+// A weapon poison's proc; the application spell holds the proc chance per landed hit
+struct rogue_poison_t : public rogue_spell_t
+{
+  const spell_data_t* application;
+
+  rogue_poison_t( util::string_view name, rogue_t* p, const spell_data_t* application ) :
+    rogue_spell_t( name, p, poison_proc_spell( p, application ) ), application( application )
   {
     background = proc = true;
     callbacks  = false;
   }
 };
 
+struct instant_poison_t : public rogue_poison_t
+{
+  instant_poison_t( rogue_t* p ) :
+    rogue_poison_t( "instant_poison", p, p->find_spell( max_rank( p, instant_poison_ranks ).spell_id ) )
+  {}
+};
+
 // Deadly Poison: Nature DoT, 12 s, ticks every 3 s, stacks to 5 (each application adds a stack and
 // refreshes the duration)
-struct deadly_poison_t : public rogue_spell_t
+struct deadly_poison_t : public rogue_poison_t
 {
   deadly_poison_t( rogue_t* p ) :
-    rogue_spell_t( "deadly_poison", p, p->find_spell( max_rank( p, deadly_poison_ranks ).spell_id ) )
+    rogue_poison_t( "deadly_poison", p, p->find_spell( max_rank( p, deadly_poison_ranks ).spell_id ) )
   {
-    background = proc = true;
-    callbacks    = false;
     dot_behavior = DOT_REFRESH_DURATION;
   }
 };
@@ -1413,8 +1422,8 @@ void rogue_t::trigger_seal_fate( const action_state_t* s )
   trigger_combo_point_gain( 1, gain.seal_fate, s->action );
 }
 
-// Weapon poisons: chance per landed hit with that weapon (white or yellow), from the item enchantment, plus
-// Improved Poisons and Venom. The poison then rolls its own (Nature) spell hit.
+// Weapon poisons: chance per landed hit with that weapon (white or yellow), from the application spell (which carries
+// Improved Poisons), plus Venom. The poison then rolls its own (Nature) spell hit.
 void rogue_t::trigger_poisons( const action_state_t* s )
 {
   const weapon_t* w = s->action->weapon;
@@ -1425,16 +1434,8 @@ void rogue_t::trigger_poisons( const action_state_t* s )
   if ( poison == poison_e::NONE )
     return;
 
-  action_t* a = poison == poison_e::INSTANT ? instant_poison : deadly_poison;
-  const auto& ranks_enchant =
-    poison == poison_e::INSTANT ? max_rank( this, instant_poison_ranks ).enchant_id : max_rank( this, deadly_poison_ranks ).enchant_id;
-  const auto& enchant = dbc->item_enchantment( ranks_enchant );
-
-  double chance = enchant.id ? enchant.ench_amount[ 0 ] / 100.0
-                             : ( poison == poison_e::INSTANT ? instant_poison_fallback_chance : deadly_poison_fallback_chance );
-
-  if ( talent.improved_poisons.ok() )
-    chance += talent.improved_poisons->effectN( 1 ).percent();
+  rogue_poison_t* a = poison == poison_e::INSTANT ? instant_poison : deadly_poison;
+  double chance     = a->application->proc_chance();
 
   if ( buff.venom->check() )
     chance += buff.venom->data().effectN( 4 ).percent();
