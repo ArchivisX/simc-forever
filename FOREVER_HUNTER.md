@@ -33,7 +33,8 @@ Improved Stings, Lightning Reflexes, Bestial Discipline (mana while casting), Ca
   Strikes (residual bleed, 40% of Mongoose Bite), Lacerate, Wing Clip, Resourcefulness, Improved Tracking,
   Surefooted (+hit), Savage Strikes and Predator's Edge (data).
 - **APL**: talent-picked tree (Survival talents -> melee SV, Lone Wolf -> MM, otherwise BM with a pet). Viper
-  below 15% mana, Hawk back at 60%; Aimed/Sniper cast right after an Auto Shot (clip at most 0.5 s).
+  below 15% mana, Hawk back at 60%; Aimed/Sniper only when the cast plus the 0.5 s aim fits before the next
+  Auto Shot, otherwise instant Multi-Shot takes the shared cooldown (clipping Aimed Shot sims 3-4% lower at L60).
 
 ## ESTIMATES (search the source for ESTIMATE)
 
@@ -69,3 +70,5 @@ Improved Stings, Lightning Reflexes, Bestial Discipline (mana while casting), Ca
    cast-while-casting poll); channels through it error, so Volley is a spell.
 5. Aura 580/598 (AP from % Intellect, Careful Aim) in the passive parser.
 6. A shared on-next-swing queue (Raptor Strike copies the warrior pattern).
+7. A per-subtype `find_effect( spell, effect_subtype_t )` accessor (retail has one): Rapid Fire reads its melee
+   speed (aura 319, effect #4) through the ranged haste value (effect #1); they are equal today.
