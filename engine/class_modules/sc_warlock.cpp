@@ -62,6 +62,15 @@ constexpr std::array corruption_ranks {
   spell_rank_t{ 25311 },
 };
 
+constexpr std::array life_tap_ranks {
+  spell_rank_t{ 1454 },   // 6
+  spell_rank_t{ 1455 },   // 16
+  spell_rank_t{ 1456 },   // 26
+  spell_rank_t{ 11687 },  // 36
+  spell_rank_t{ 11688 },  // 46
+  spell_rank_t{ 11689 },  // 56
+};
+
 constexpr std::array firebolt_ranks {
   spell_rank_t{ 3110 },   // 1
   spell_rank_t{ 7799 },   // 8
@@ -89,6 +98,12 @@ struct warlock_t final : public player_t
   void init_spells() override;
 
   void create_pets() override;
+  void init_gains() override;
+
+  struct gains_t
+  {
+    gain_t* life_tap = nullptr;
+  } gain;
 
   struct pets_t
   {
@@ -166,6 +181,35 @@ struct corruption_t : public warlock_spell_t
     warlock_spell_t( "corruption", player, player->find_spell( max_rank( player, corruption_ranks ).spell_id ) )
   {
     parse_options( options_str );
+  }
+};
+
+// Life Tap
+// Converts health into mana. The amount is the Dummy effect (base + points per level up to the rank's max
+// level), and the health cost equals the mana gained. No spell power scaling in the client data
+// (2026-10-16). The spell has "Don't Block Mana Regen", and gaining mana never starts the five second rule.
+
+struct life_tap_t : public warlock_spell_t
+{
+  life_tap_t( warlock_t* player, util::string_view options_str ) :
+    warlock_spell_t( "life_tap", player, player->find_spell( max_rank( player, life_tap_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+
+    harmful  = false;
+    may_miss = false;
+    may_crit = false;
+    target   = player;
+  }
+
+  void execute() override
+  {
+    warlock_spell_t::execute();
+
+    double amount = data().effectN( 1 ).average( player );
+
+    p()->resource_loss( RESOURCE_HEALTH, amount, nullptr, this );
+    p()->resource_gain( RESOURCE_MANA, amount, p()->gain.life_tap, this );
   }
 };
 
@@ -320,6 +364,9 @@ action_t* warlock_t::create_action( util::string_view name, util::string_view op
   if ( name == "corruption" )
     return new corruption_t( this, options_str );
 
+  if ( name == "life_tap" )
+    return new life_tap_t( this, options_str );
+
   if ( name == "summon_imp" )
     return new summon_imp_t( this, options_str );
 
@@ -331,6 +378,13 @@ void warlock_t::create_pets()
   player_t::create_pets();
 
   pets.imp = new pets::imp::imp_pet_t( sim, this );
+}
+
+void warlock_t::init_gains()
+{
+  player_t::init_gains();
+
+  gain.life_tap = get_gain( "life_tap" );
 }
 
 void warlock_t::init_base_stats()
