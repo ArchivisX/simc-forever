@@ -94,6 +94,18 @@ constexpr std::array thunder_clap_ranks {
   spell_rank_t{ 11581 },
 };
 
+constexpr std::array overpower_ranks {
+  spell_rank_t{ 7384 },
+  spell_rank_t{ 7887 },
+  spell_rank_t{ 11584 },
+  spell_rank_t{ 11585 },
+};
+
+// 2026-10-16: The client marks the Overpower window with a warrior combo point on the dodging target
+// (Overpower lists "1 - 5 Combo Points" as a second power cost); no spell data carries the window length.
+// Vanilla kept it for 5 seconds after the dodge.
+constexpr timespan_t overpower_window = 5_s;
+
 
 struct warrior_t : public player_t
 {
@@ -131,6 +143,7 @@ struct warrior_t : public player_t
     buff_t* bloodrage    = nullptr;
 
     buff_t* heroic_strike_queued = nullptr;
+    buff_t* overpower            = nullptr;
   } buff;
 
   struct gains_t
@@ -184,6 +197,15 @@ public:
     {
       ab::consume_resource();
     }
+  }
+
+  void impact( action_state_t* s ) override
+  {
+    ab::impact( s );
+
+    // Any dodged warrior attack (white or yellow) opens the Overpower window
+    if ( s->result == RESULT_DODGE )
+      p()->buff.overpower->trigger();
   }
 };
 
@@ -439,6 +461,32 @@ struct thunder_clap_t : public warrior_attack_t
   }
 };
 
+// Overpower is No Active Defense in the spell data, so it cannot be dodged, parried or blocked.
+// TODO: Stances are not modelled, the warrior is assumed to be in Battle Stance.
+struct overpower_t : public warrior_attack_t
+{
+  overpower_t( warrior_t* player, util::string_view options_str ) :
+    warrior_attack_t( "overpower", player, player->find_spell( max_rank( player, overpower_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+  }
+
+  bool ready() override
+  {
+    if ( !p()->buff.overpower->check() )
+      return false;
+
+    return warrior_attack_t::ready();
+  }
+
+  void execute() override
+  {
+    warrior_attack_t::execute();
+
+    p()->buff.overpower->expire();
+  }
+};
+
 /////////////////////////////////////////////////////////////////////////////////////
 //
 // Stats, Actions, Oh my
@@ -489,6 +537,9 @@ void warrior_t::create_buffs()
 {
   buff.heroic_strike_queued = make_buff( this, "heroic_strike_queued" );
 
+  buff.overpower = make_buff( this, "overpower" )
+                     ->set_duration( overpower_window );
+
   buff.battle_shout = make_buff<stat_buff_t>( this, "battle_shout",
                         find_spell( max_rank( this, battle_shout_ranks ).spell_id ) );
 
@@ -521,6 +572,7 @@ action_t* warrior_t::create_action( util::string_view name, util::string_view op
 
 
   if ( name == "thunder_clap" ) return new thunder_clap_t( this, options_str );
+  if ( name == "overpower" ) return new overpower_t( this, options_str );
 
   return player_t::create_action( name, options_str );
 }
