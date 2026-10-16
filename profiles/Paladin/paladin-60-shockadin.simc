@@ -1,0 +1,21 @@
+# Forever paladin sample: level 60 Undead (Horde) "Shockadin" (21 Holy / 30 Ret) vs a level 63 boss.
+# Holy Shock (21 point Holy milestone) with Divine Favor, plus Seal of Command / Holy Strike / Judgement.
+# Healing is out of scope; this is the Holy-flavoured DPS build. Base stats L31-60 are ESTIMATE rows (vanilla).
+# Gear: Lightforge (paladin dungeon set) and pre-raid pieces from the Forever item data, 2H Arcanite Reaper.
+paladin="Forever_Paladin_60_Shockadin"
+level=60
+race=undead
+role=attack
+position=back
+class_talents=divine_strength:5/divine_intellect:5/improved_seals:3/purifying_power:2/reverence:3/divine_favor:1/unyielding_faith:1/holy_shock:1/benediction:5/conviction:5/improved_judgement:2/seal_of_command:1/sanctified_judgement:3/vindication:3/sacred_arbiter:1/vengeance:3/twohanded_weapon_specialization:3/champion_of_the_light:3/instrument_of_law:1
+head=,id=16727
+neck=,id=18404
+chest=,id=16726
+wrists=,id=16722
+hands=,id=16724
+waist=,id=16723
+legs=,id=15062
+feet=,id=16725
+finger1=,id=19325
+finger2=,id=18821
+main_hand=,id=12784

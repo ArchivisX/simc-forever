@@ -1,0 +1,13 @@
+# Forever paladin sample: level 25 Undead (Horde) leveling Retribution (16 Ret) vs a level 25 target.
+# Seal of Command (11 point milestone) and Sacred Arbiter (16 point milestone); no Hammer of Wrath before 44.
+# Base stats are ESTIMATE rows (vanilla) above the measured beta levels. Talents by simc trait name.
+paladin="Forever_Paladin_25_Retribution"
+level=25
+race=undead
+role=attack
+position=back
+class_talents=benediction:5/conviction:5/seal_of_command:1/improved_judgement:2/sanctified_judgement:2/sacred_arbiter:1
+# Pysan's Old Greatsword (2H sword, 3.3)
+main_hand=,id=1975
+enemy=Training_Dummy_25
+target_level=25
