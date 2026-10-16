@@ -391,6 +391,11 @@ namespace pets {
 
       resource_e primary_resource() const override { return RESOURCE_MANA; }
 
+      // TODO: figure this out - probably another table of int/mana at every level
+      // fit to obsevations level 3-8 but starts to break down at level 9
+      static double base_mana( int level )
+      { return std::floor( 29 + 9.5 * level ); }
+
       // copies owner's crit which matches imp char sheet
       double pet_crit() const override
       { return current_pet_stats.composite_spell_crit; }
@@ -403,10 +408,9 @@ namespace pets {
         }
 
         // TODO - this is at level 7, probably need a table for this
-        // 2026-10-16: above level 10 scale it with the imp's max mana (124 at level 10, see init_base_stats)
+        // 2026-10-16: above level 10 scale it with the imp's max mana (124 at level 10)
         // so higher level imps don't run dry after a few casts. Levels <= 10 are unchanged. Unverified.
-        double level10_mana = std::floor( 29 + 9.5 * 10 );
-        double scale        = std::max( 1.0, resources.max[ RESOURCE_MANA ] / level10_mana );
+        double scale = std::max( 1.0, resources.max[ RESOURCE_MANA ] / base_mana( 10 ) );
         return ( recent_cast() ? 1.65 : 2.73 ) * scale;
       }
 
@@ -414,10 +418,7 @@ namespace pets {
       {
         warlock_pet_t::init_base_stats();
 
-        // TODO: figure this out - probably another table of int/mana at every level
-        // fit to obsevations level 3-8 but starts to break down at level 9
-        double mana = 29 + (9.5 * level());
-        resources.base[ RESOURCE_MANA ] = std::floor(mana);
+        resources.base[ RESOURCE_MANA ] = base_mana( level() );
       }
 
       void init_action_list() override
