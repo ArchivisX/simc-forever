@@ -44,8 +44,14 @@ void warrior( player_t* p )
 
   default_->add_action( "battle_shout,if=!buff.battle_shout.up" );
   default_->add_action( "bloodrage,if=rage<80" );
+  default_->add_action( "execute", "Only usable at or below 20% target health" );
+  default_->add_action( "overpower", "Only usable after the target dodges" );
+  default_->add_action( "mortal_strike", "Talent abilities are ignored unless the talent is selected" );
+  default_->add_action( "bloodthirst" );
+  default_->add_action( "whirlwind" );
   default_->add_action( "rend,if=!ticking" );
   default_->add_action( "thunder_clap,if=spell_targets>=2" );
+  default_->add_action( "cleave,if=spell_targets>=2&rage>=30" );
   default_->add_action( "heroic_strike,if=rage>=30" );
 }
 //warrior_apl_end
