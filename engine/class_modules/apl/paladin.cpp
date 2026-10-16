@@ -52,10 +52,10 @@ void paladin( player_t* p )
   default_->add_action( "lights_vigil,if=cooldown.holy_shock.remains<cast_time&mana.pct>40" );
   default_->add_action( "holy_strike" );
   default_->add_action( "judgement,if=!buff.seal_of_the_crusader.up" );
-  default_->add_action( "seal_of_righteousness,if=talent.twist_of_light&buff.seal_of_command.up&swing.mh.remains>gcd&mana.pct>50", "Twist of Light: swap seals right after a swing so the next swing carries both" );
-  default_->add_action( "seal_of_command,if=talent.twist_of_light&buff.seal_of_righteousness.up&swing.mh.remains>gcd", "Always twist back to Seal of Command" );
   default_->add_action( "exorcism,if=mana.pct>30", "Only usable on Undead and Demon targets (enemy race)" );
-  default_->add_action( "consecration,if=spell_targets.consecration>=3|mana.pct>90", "Poor damage per mana on a single target" );
+  default_->add_action( "seal_of_righteousness,if=talent.twist_of_light&buff.seal_of_command.up&swing.mh.remains>gcd&mana.pct>95&target.health.pct>20", "Twist of Light: swap seals right after a swing so the next swing carries both. Two seals buy two Seal of Righteousness hits, worse damage per mana than Hammer of Wrath, so only twist with mana that would overflow" );
+  default_->add_action( "seal_of_command,if=talent.twist_of_light&buff.seal_of_righteousness.up&swing.mh.remains>gcd", "Always twist back to Seal of Command" );
+  default_->add_action( "consecration,if=spell_targets.consecration>=3", "Poor damage per mana on a single target" );
 }
 //paladin_apl_end
 
