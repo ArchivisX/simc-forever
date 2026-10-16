@@ -790,6 +790,9 @@ void action_t::parse_spell_data( const spell_data_t& spell_data )
   base_crit += crit_mod[ 1 ];
   crit_chance_multiplier *= crit_mod[ 2 ];
 
+  // Forever: classic hit chance modifiers (Add Flat Modifier property 16)
+  base_hit += player->get_passive_value( spell_data, "hit" )[ 1 ];
+
   auto crit_bonus_mod = player->get_passive_value( spell_data, "crit_bonus" );
   base_crit_bonus += crit_bonus_mod[ 1 ];
   crit_bonus_multiplier *= crit_bonus_mod[ 2 ];
@@ -1499,7 +1502,8 @@ double action_t::calculate_direct_amount( action_state_t* state ) const
   double weapon_slot_modifier = 1.0;
   if ( weapon && weapon->slot == SLOT_OFF_HAND )
   {
-    weapon_slot_modifier = 0.5;
+    // Forever: Dual Wield Specialization (aura 122) raises the off hand damage
+    weapon_slot_modifier = 0.5 * player->classic.offhand_damage_multiplier;
     amount *= weapon_slot_modifier;
     weapon_amount *= weapon_slot_modifier;
   }

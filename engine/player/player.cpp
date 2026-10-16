@@ -1607,6 +1607,17 @@ void player_t::init_base_stats()
     // Forever: classic mana regeneration passives (talents like Meditation, mp5 runes)
     classic.mana_regen_while_casting = get_passive_player_value( 0.0, "mana_regen_while_casting" );
     classic.mp5                      = get_passive_player_value( 0.0, "mp5" );
+    classic.melee_hit                = get_passive_player_value( 0.0, "melee_hit" );
+    classic.spell_hit                = get_passive_player_value( 0.0, "spell_hit" );
+    classic.ranged_attack_power_multiplier = get_passive_player_value( 1.0, "ranged_attack_power_multiplier" );
+    classic.offhand_damage_multiplier = get_passive_player_value( 1.0, "offhand_damage_multiplier" );
+    for ( auto attr : { ATTR_STRENGTH, ATTR_AGILITY, ATTR_STAMINA, ATTR_INTELLECT, ATTR_SPIRIT } )
+    {
+      classic.spell_power_per_attribute[ attr ] = get_passive_player_value( 0.0, "spell_power_of_attribute", attr );
+      classic.attack_power_per_attribute[ attr ] = get_passive_player_value( 0.0, "attack_power_of_attribute", attr );
+      classic.ranged_attack_power_per_attribute[ attr ] =
+        get_passive_player_value( 0.0, "ranged_attack_power_of_attribute", attr );
+    }
 
     // Forever: no base line hit or expertise
     base.hit       = 0.0;
@@ -1770,6 +1781,9 @@ void player_t::init_initial_stats()
       {
         if ( item.parsed.data.stat_type_e[ i ] == ITEM_MOD_MANA_REGENERATION )
           classic.mp5 += std::max( 0, item.stat_value( i ) );
+        // "+X ranged attack power" (item mod 39) only counts for ranged attacks
+        else if ( item.parsed.data.stat_type_e[ i ] == ITEM_MOD_RANGED_ATTACK_POWER )
+          classic.ranged_attack_power += std::max( 0, item.stat_value( i ) );
       }
     }
 
@@ -4459,8 +4473,38 @@ double player_t::composite_melee_attack_power() const
 
   ap += current.attack_power_per_strength * cache.strength();
   ap += current.attack_power_per_agility * cache.agility();
+  ap += classic.raid_attack_power;
+
+  for ( auto attr : { ATTR_STRENGTH, ATTR_AGILITY, ATTR_STAMINA, ATTR_INTELLECT, ATTR_SPIRIT } )
+  {
+    if ( classic.attack_power_per_attribute[ attr ] )
+      ap += classic.attack_power_per_attribute[ attr ] * cache.get_attribute( attr );
+  }
 
   return ap;
+}
+
+// Forever: classic ranged attack power. Gear, enchant and buff attack power count for melee and ranged alike, the
+// class base and per stat rates don't (current.stats.attack_power less base.stats.attack_power is the gear part).
+double player_t::composite_ranged_attack_power() const
+{
+  double ap = current.stats.attack_power - base.stats.attack_power;
+
+  ap += classic.ranged_attack_power;
+  ap += classic.ranged_attack_power_per_agility * cache.agility();
+
+  for ( auto attr : { ATTR_STRENGTH, ATTR_AGILITY, ATTR_STAMINA, ATTR_INTELLECT, ATTR_SPIRIT } )
+  {
+    if ( classic.ranged_attack_power_per_attribute[ attr ] )
+      ap += classic.ranged_attack_power_per_attribute[ attr ] * cache.get_attribute( attr );
+  }
+
+  return ap;
+}
+
+double player_t::composite_ranged_attack_power_multiplier() const
+{
+  return classic.ranged_attack_power_multiplier;
 }
 
 double player_t::composite_weapon_attack_power_by_type( attack_power_type ap_type ) const
@@ -4583,7 +4627,7 @@ double player_t::composite_melee_expertise( const weapon_t* ) const
 
 double player_t::composite_melee_hit() const
 {
-  double ah = current.hit;
+  double ah = current.hit + classic.melee_hit;
 
   ah += composite_melee_hit_rating() / current.rating.attack_hit;
 
@@ -4785,6 +4829,12 @@ double player_t::composite_spell_power( school_e /* school */ ) const
 
   sp += current.spell_power_per_intellect * cache.intellect();
 
+  for ( auto attr : { ATTR_STRENGTH, ATTR_AGILITY, ATTR_STAMINA, ATTR_INTELLECT, ATTR_SPIRIT } )
+  {
+    if ( classic.spell_power_per_attribute[ attr ] )
+      sp += classic.spell_power_per_attribute[ attr ] * cache.get_attribute( attr );
+  }
+
   return sp;
 }
 
@@ -4838,7 +4888,7 @@ double player_t::composite_spell_crit_chance() const
 
 double player_t::composite_spell_hit() const
 {
-  double sh = current.hit;
+  double sh = current.hit + classic.spell_hit;
 
   sh += composite_spell_hit_rating() / current.rating.spell_hit;
 
@@ -5228,6 +5278,16 @@ void player_t::invalidate_cache( cache_e c )
     return;
 
   sim->print_debug( "{} invalidates stat cache for {}.", *this, c );
+
+  // Forever: spell power and attack power from a percentage of a stat (auras 174, 212, 580, 598)
+  if ( c >= CACHE_STRENGTH && c <= CACHE_SPIRIT )
+  {
+    auto attr = static_cast<attribute_e>( ATTR_STRENGTH + ( c - CACHE_STRENGTH ) );
+    if ( classic.spell_power_per_attribute[ attr ] )
+      invalidate_cache( CACHE_SPELL_POWER );
+    if ( classic.attack_power_per_attribute[ attr ] || classic.ranged_attack_power_per_attribute[ attr ] )
+      invalidate_cache( CACHE_ATTACK_POWER );
+  }
 
   // Special linked invalidations
   switch ( c )
@@ -12422,6 +12482,7 @@ void player_t::create_options()
   add_option( opt_string( "main_hand", items[ SLOT_MAIN_HAND ].options_str ) );
   add_option( opt_string( "off_hand", items[ SLOT_OFF_HAND ].options_str ) );
   add_option( opt_string( "tabard", items[ SLOT_TABARD ].options_str ) );
+  add_option( opt_string( "ranged", items[ SLOT_RANGED ].options_str ) );
 
   // Set Bonus
   add_option( opt_func( "set_bonus", parse_set_bonus ) );
@@ -14045,6 +14106,7 @@ static constexpr std::pair<int, std::string_view> field_type_map[] = {
   { P_COOLDOWN,                               "cooldown"                         },  // 11
   { P_RESOURCE_COST_1,                        "cost"                             },  // 14
   { P_CRIT_BONUS,                             "crit_bonus"                       },  // 15
+  { P_PENETRATION,                            "hit"                              },  // 16, Forever: classic hit chance
   { P_CHAIN_TARGETS,                          "chain_target"                     },  // 17
   { P_PROC_CHANCE,                            "proc_chance"                      },  // 18
   { P_TICK_TIME,                              "period"                           },  // 19
@@ -14063,6 +14125,8 @@ static constexpr std::pair<int, std::string_view> field_type_map[] = {
   { A_MOD_CRITICAL_HEALING_AMOUNT,            "crit_heal_multiplier"             },  // 50
   { A_MOD_BLOCK_PERCENT,                      "block"                            },  // 51
   { A_MOD_CRIT_PERCENT,                       "attack_crit"                      },  // 52
+  { A_MOD_HIT_CHANCE,                         "melee_hit"                        },  // 54
+  { A_MOD_SPELL_HIT_CHANCE,                   "spell_hit"                        },  // 55
   { A_MOD_SPELL_CRIT_CHANCE,                  "spell_crit"                       },  // 57
   { A_MOD_DAMAGE_PERCENT_DONE,                "damage_multiplier"                },  // 79
   { A_MOD_PERCENT_STAT,                       "base_attribute_multiplier"        },  // 80
@@ -14079,7 +14143,13 @@ static constexpr std::pair<int, std::string_view> field_type_map[] = {
   { -(int)A_MOD_TOTAL_STAT_PERCENTAGE,        "armor_type_multiplier"            },  // -137
   { A_MOD_BASE_RESISTANCE_PCT,                "base_armor_multiplier"            },  // 142
   { A_MOD_CRIT_DAMAGE_MULTIPLIER,             "crit_damage_multiplier"           },  // 163
+  { A_MOD_OFFHAND_DAMAGE_PCT,                 "offhand_damage_multiplier"        },  // 122
   { A_MOD_ATTACK_POWER_PCT,                   "attack_power_multiplier",         },  // 166
+  { A_MOD_RANGED_ATTACK_POWER_PCT,            "ranged_attack_power_multiplier"   },  // 167
+  { A_MOD_SPELL_DAMAGE_OF_STAT_PERCENT,       "spell_power_of_attribute"         },  // 174
+  { A_MOD_RANGED_ATTACK_POWER_OF_STAT_PERCENT, "ranged_attack_power_of_attribute" },  // 212
+  { A_580,                                    "ranged_attack_power_of_attribute" },  // 580, Forever
+  { A_598,                                    "attack_power_of_attribute"        },  // 598, Forever
   { A_MOD_RECHARGE_TIME_PCT_CATEGORY_MASK,    "charge_cooldown"                  },  // 173
   { A_MOD_MAX_MANA_PCT,                       "resource_multiplier"              },  // 178
   { A_MOD_ATTACKER_MELEE_CRIT_CHANCE,         "crit_avoidance"                   },  // 187
@@ -14160,8 +14230,11 @@ struct misc_expansion_t
   std::function<std::string( int )> formatter;
 };
 
-static const std::array<misc_expansion_t, 11> misc_expansion_map = { {
+static const std::array<misc_expansion_t, 14> misc_expansion_map = { {
   { "attribute_value",           MISC_LIST_ATTR,     &attr_formatter     },
+  { "spell_power_of_attribute",  MISC_LIST_ATTR,     &attr_formatter     },
+  { "attack_power_of_attribute", MISC_LIST_ATTR,     &attr_formatter     },
+  { "ranged_attack_power_of_attribute", MISC_LIST_ATTR, &attr_formatter  },
   { "base_attribute_multiplier", MISC_LIST_ATTR,     &attr_formatter     },
   { "attribute_multiplier",      MISC_BITMAP_ATTR,   &attr_formatter     },
   { "armor_type_multiplier",     MISC_BITMAP_ATTR,   &attr_formatter     },
@@ -14434,7 +14507,9 @@ bool player_t::register_passive_effect( const spelleffect_data_t& modifying_eff,
       case A_MOD_HEALING_RECEIVED_PCT:  // 118
       case A_MOD_HEALING_DONE_PERCENT:  // 136
       case A_MOD_CRIT_DAMAGE_MULTIPLIER:  // 163
+      case A_MOD_OFFHAND_DAMAGE_PCT:  // 122
       case A_MOD_ATTACK_POWER_PCT:  // 166
+      case A_MOD_RANGED_ATTACK_POWER_PCT:  // 167
       case A_HASTE_ALL:  // 193
       case A_MOD_MECHANIC_DAMAGE_DONE_PERCENT:  // 276
       case A_MOD_MELEE_AUTO_ATTACK_SPEED:  // 319
@@ -14475,6 +14550,30 @@ bool player_t::register_passive_effect( const spelleffect_data_t& modifying_eff,
         break;
       case A_MOD_MANA_REGEN_INTERRUPT:  // 134, % of spirit regen kept while casting
         misc_type = 0;
+        flat_val = modifying_eff.average( this ) * 0.01;
+        break;
+      // Forever: classic hit chance auras. Aura 54 covers melee and ranged attacks, aura 55 spells. A school
+      // mask on aura 55 (Season of Discovery ring runes) limits it to those schools, which isn't modelled.
+      case A_MOD_SPELL_HIT_CHANCE:  // 55
+        if ( misc_type != 0 && ( misc_type & 0x7E ) != 0x7E )
+          return false;
+        SC_FALLTHROUGH;
+      case A_MOD_HIT_CHANCE:  // 54
+        misc_type = 0;
+        flat_val = modifying_eff.average( this ) * 0.01;
+        break;
+      // Forever: spell damage from a percentage of a stat. Misc value is the school mask, misc value 2 the stat.
+      // simc has a single spell power, so only all-magic-school masks are parsed.
+      case A_MOD_SPELL_DAMAGE_OF_STAT_PERCENT:  // 174
+        if ( ( misc_type & 0x7E ) != 0x7E )
+          return false;
+        misc_type = modifying_eff.misc_value2();
+        flat_val = modifying_eff.average( this ) * 0.01;
+        break;
+      // Forever: attack power from a percentage of a stat, misc value is the stat
+      case A_MOD_RANGED_ATTACK_POWER_OF_STAT_PERCENT:  // 212
+      case A_580:  // ranged
+      case A_598:  // melee
         flat_val = modifying_eff.average( this ) * 0.01;
         break;
       case A_MOD_PERCENT_STAT:  // 80

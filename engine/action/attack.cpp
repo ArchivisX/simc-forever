@@ -115,7 +115,8 @@ double attack_t::miss_chance( double hit, player_t* t ) const
   }
 
   // Classic dual wield penalty: white swings miss 19% more often while two weapons are equipped
-  if ( sim->classic.dual_wield_miss && !special && player->dual_wield() )
+  // An on next swing ability queued on the main hand removes the penalty from both hands' white swings.
+  if ( sim->classic.dual_wield_miss && !special && player->dual_wield() && !player->classic_next_swing_queued() )
     miss += 0.19;
 
   // asymmetric hit penalty for npcs attacking higher-level players

@@ -1087,6 +1087,36 @@ double parse_player_effects_t::stacking_movement_modifier() const
   return m;
 }
 
+double parse_player_effects_t::composite_melee_hit() const
+{
+  auto hit = player_t::composite_melee_hit();
+
+  for ( const auto& i : melee_hit_effects )
+    hit += get_effect_value( i );
+
+  return hit;
+}
+
+double parse_player_effects_t::composite_spell_hit() const
+{
+  auto hit = player_t::composite_spell_hit();
+
+  for ( const auto& i : spell_hit_effects )
+    hit += get_effect_value( i );
+
+  return hit;
+}
+
+double parse_player_effects_t::composite_spell_power( school_e school ) const
+{
+  auto sp = player_t::composite_spell_power( school );
+
+  for ( const auto& i : spell_power_of_attribute_effects )
+    sp += get_effect_value( i ) * cache.get_attribute( static_cast<attribute_e>( i.opt_enum ) );
+
+  return sp;
+}
+
 void parse_player_effects_t::invalidate_cache( cache_e c )
 {
   player_t::invalidate_cache( c );
@@ -1278,6 +1308,34 @@ std::vector<player_effect_t>* parse_player_effects_t::get_effect_vector( const s
       invalidate( CACHE_RUN_SPEED );
       return &stacking_movement_effects;
 
+    // Forever: classic hit chance auras, 54 for melee and ranged, 55 for spells
+    case A_MOD_HIT_CHANCE:
+      str = "melee hit";
+      invalidate( CACHE_ATTACK_HIT );
+      return &melee_hit_effects;
+
+    case A_MOD_SPELL_HIT_CHANCE:
+      if ( eff.misc_value1() != 0 && ( eff.misc_value1() & 0x7E ) != 0x7E )
+        return nullptr;
+      str = "spell hit";
+      invalidate( CACHE_SPELL_HIT );
+      return &spell_hit_effects;
+
+    // Forever: spell damage from a percentage of a stat (misc value school mask, misc value 2 stat)
+    case A_MOD_SPELL_DAMAGE_OF_STAT_PERCENT:
+    {
+      if ( ( eff.misc_value1() & 0x7E ) != 0x7E )
+        return nullptr;
+      auto attr = static_cast<attribute_e>( eff.misc_value2() + 1 );
+      tmp.opt_enum = attr;
+      str = fmt::format( "spell power|of {}", util::attribute_type_string( attr ) );
+      invalidate( CACHE_SPELL_POWER );
+      auto c = static_cast<cache_e>( CACHE_STRENGTH + ( attr - ATTR_STRENGTH ) );
+      if ( !range::contains( invalidate_with_parent, std::pair<cache_e, cache_e>( CACHE_SPELL_POWER, c ) ) )
+        invalidate_with_parent.emplace_back( CACHE_SPELL_POWER, c );
+      return &spell_power_of_attribute_effects;
+    }
+
     case A_MOD_PERCENT_STAT:
       sim->error( SEVERE,
                   "Parse Effects: {}(id={}), effectN {} is utilizing aura subtype 80, rather than 137. This is a bug, "
@@ -1417,6 +1475,9 @@ void parse_player_effects_t::print_custom_parsed_effects( report::sc_html_stream
     print_parsed_type( os, leech_effects, "Leech" );
     print_parsed_type( os, non_stacking_movement_effects, "Move Speed Modifier - Exclusive" );
     print_parsed_type( os, stacking_movement_effects, "Move Speed Modifier - Stacking" );
+    print_parsed_type( os, melee_hit_effects, "Melee Hit" );
+    print_parsed_type( os, spell_hit_effects, "Spell Hit" );
+    print_parsed_type( os, spell_power_of_attribute_effects, "Spell Power from Attribute" );
     print_parsed_type( os, parry_effects, "Parry" );
     print_parsed_type( os, parry_rating_from_crit_effects, "Parry Rating from Crit" );
     print_parsed_type( os, pet_multiplier_effects, "Pet Multiplier", &opt_strings::pet_type );
@@ -1461,7 +1522,10 @@ size_t parse_player_effects_t::total_effects_count() const
          target_multiplier_effects.size() +
          target_pet_multiplier_effects.size() +
          non_stacking_movement_effects.size() +
-         stacking_movement_effects.size();
+         stacking_movement_effects.size() +
+         melee_hit_effects.size() +
+         spell_hit_effects.size() +
+         spell_power_of_attribute_effects.size();
 }
 
 void parse_action_base_t::parse_callback_function( pack_t<player_effect_t>& pack, parse_cb_t cb )

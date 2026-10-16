@@ -428,6 +428,20 @@ struct player_t : public actor_t
     double mp5                      = 0.0;  // flat mana per 5 sec, ignores the five second rule (item mod 43, aura 85)
     double mp5_bonus                = 0.0;  // user option "mp5", added on top
     double weapon_skill_bonus       = 0.0;  // user option "weapon_skill_bonus", added to 5 * level for every weapon
+    double melee_hit                = 0.0;  // melee and ranged hit chance from aura 54 passives
+    double spell_hit                = 0.0;  // spell hit chance from aura 55 passives
+    // stat conversions from passives: spell damage (aura 174), melee (aura 598) and ranged (auras 212, 580) attack
+    // power from a percentage of an attribute (Spiritual Guidance, Champion of the Light, Careful Aim, Cat Form)
+    std::array<double, ATTRIBUTE_MAX> spell_power_per_attribute{};
+    std::array<double, ATTRIBUTE_MAX> attack_power_per_attribute{};
+    std::array<double, ATTRIBUTE_MAX> ranged_attack_power_per_attribute{};
+    // ranged attack power: the class sets the base (hunter 2 * level - 10) and the per agility rate in
+    // init_base_stats; ranged-only item attack power (item mod 39) is added on top
+    double raid_attack_power                   = 0.0;  // flat melee attack power from the optimal raid Battle Shout
+    double ranged_attack_power                 = 0.0;
+    double ranged_attack_power_per_agility     = 0.0;
+    double ranged_attack_power_multiplier      = 1.0;  // aura 167 passives
+    double offhand_damage_multiplier           = 1.0;  // aura 122 passives (Dual Wield Specialization)
     double energy_pending           = 0.0;  // energy regenerated since the last 2 second energy tick
     int    energy_tick_index        = 0;    // number of energy ticks granted this iteration
   } classic;
@@ -889,6 +903,12 @@ public:
   virtual double composite_melee_haste() const;
   virtual double composite_melee_auto_attack_speed() const;
   virtual double composite_melee_attack_power() const;
+  virtual double composite_ranged_attack_power() const;
+  virtual double composite_ranged_attack_power_multiplier() const;
+  // Forever: true while an on next swing ability (Heroic Strike, Cleave, Maul, Raptor Strike) is queued, which
+  // removes the dual wield miss penalty from white swings
+  virtual bool classic_next_swing_queued() const
+  { return false; }
   virtual double composite_weapon_attack_power_by_type( attack_power_type ) const;
   virtual double composite_total_attack_power_by_type( attack_power_type ) const;
   virtual double composite_melee_hit() const;

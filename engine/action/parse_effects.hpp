@@ -706,6 +706,9 @@ struct parse_player_effects_t : public player_t, public parse_effects_t
   std::vector<target_effect_t> target_pet_multiplier_effects;
   std::vector<player_effect_t> non_stacking_movement_effects;
   std::vector<player_effect_t> stacking_movement_effects;
+  std::vector<player_effect_t> melee_hit_effects;  // Forever: classic hit chance auras (54, 55)
+  std::vector<player_effect_t> spell_hit_effects;
+  std::vector<player_effect_t> spell_power_of_attribute_effects;  // Forever: aura 174
 
   // Cache Pairing, invalidate first of the pair when the second is invalidated
   std::vector<std::pair<cache_e, cache_e>> invalidate_with_parent;
@@ -743,6 +746,9 @@ struct parse_player_effects_t : public player_t, public parse_effects_t
                                                       bool direct ) const override;
   double non_stacking_movement_modifier() const override;
   double stacking_movement_modifier() const override;
+  double composite_melee_hit() const override;
+  double composite_spell_hit() const override;
+  double composite_spell_power( school_e ) const override;
 
   void invalidate_cache( cache_e c ) override;
 

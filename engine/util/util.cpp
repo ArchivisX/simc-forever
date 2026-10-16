@@ -1120,6 +1120,7 @@ const char* util::slot_type_string( slot_e slot )
     case SLOT_MAIN_HAND: return "main_hand";
     case SLOT_OFF_HAND:  return "off_hand";
     case SLOT_TABARD:    return "tabard";
+    case SLOT_RANGED:    return "ranged";
     default:             return "unknown";
   }
 }
@@ -2064,7 +2065,6 @@ stat_e util::translate_item_mod( int item_mod )
     case ITEM_MOD_HASTE_RATING:        return STAT_HASTE_RATING;
     case ITEM_MOD_EXPERTISE_RATING:    return STAT_EXPERTISE_RATING;
     case ITEM_MOD_ATTACK_POWER:        return STAT_ATTACK_POWER;
-    case ITEM_MOD_RANGED_ATTACK_POWER: return STAT_ATTACK_POWER;
     case ITEM_MOD_SPELL_POWER:         return STAT_SPELL_POWER;
     // Forever: classic "Increases damage done by magical spells and effects by up to X" (damage only).
     // simc has a single spell power stat, so this also (wrongly) boosts heals. Healing-only (41) and
