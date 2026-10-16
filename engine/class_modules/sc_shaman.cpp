@@ -24,6 +24,11 @@ struct rockbiter_rank_t
   unsigned  spell_id;    // Rockbiter Weapon
   unsigned  passive_id;  // Rockbiter Weapon (Passive)
 };
+struct windfury_rank_t
+{
+  unsigned  spell_id;  // Windfury Weapon (the imbue cast)
+  unsigned  proc_id;   // Windfury Weapon (attack power aura + extra attacks)
+};
 struct totem_rank_t
 {
   unsigned  spell_id;  // the totem
@@ -117,6 +122,13 @@ constexpr std::array rockbiter_weapon_ranks {
   rockbiter_rank_t{ 16315,  16312 },
   rockbiter_rank_t{ 16316,  16313 },
 };
+constexpr std::array windfury_weapon_ranks {
+  //               spell   proc
+  windfury_rank_t{  8232,   8233 },
+  windfury_rank_t{  8235,   8236 },
+  windfury_rank_t{ 10486,  10484 },
+  windfury_rank_t{ 16362,  16361 },
+};
 constexpr std::array strength_of_earth_totem_ranks {
   //            spell   aura
   totem_rank_t{  8075,   8076 },
@@ -172,6 +184,8 @@ struct shaman_t final : public player_t
   {
     buff_t* flametongue_weapon = nullptr;
     buff_t* rockbiter_weapon = nullptr;
+    buff_t* windfury_weapon = nullptr;
+    buff_t* windfury_attack_power = nullptr;
 
     buff_t* strength_of_earth = nullptr;
   } buff;
@@ -196,6 +210,13 @@ struct shaman_t final : public player_t
   target_specific_t<shaman_td_t> target_data;
 
   action_t* flametongue_attack = nullptr;
+  action_t* windfury_attack = nullptr;
+
+  // Windfury Weapon proc driver (from the imbue's item enchantment), see shaman_t::init_spells
+  const spell_data_t* windfury_driver = spell_data_t::not_found();
+  cooldown_t* windfury_icd = nullptr;
+
+  void trigger_windfury_weapon( action_state_t* s );
 
 };
 
@@ -318,6 +339,20 @@ void shaman_t::init_spells()
   // the talent tree's own level gates (the level 20 beta export has it). Selecting the node is the gate.
   if ( talent.stormstrike.rank() > 0 )
     spell.stormstrike = dbc::find_spell( this, talent.stormstrike.trait()->id_spell );
+
+  // Windfury Weapon (2026-10-16): the imbue cast's effect #1 (type 360) names the item enchantment, whose
+  // equip spell is the proc driver (439431 for all four ranks in build 70334: 20% chance on white or
+  // yellow melee, 1.5 s internal cooldown). The rank's proc spell holds the attack power and extra attacks.
+  const spell_data_t* windfury = find_spell( max_rank( this, windfury_weapon_ranks ).spell_id );
+  if ( windfury->ok() )
+  {
+    const auto& enchant = dbc->item_enchantment( as<unsigned>( windfury->effectN( 1 ).misc_value1() ) );
+    if ( enchant.ench_type[ 0 ] == ITEM_ENCHANTMENT_EQUIP_SPELL )
+      windfury_driver = dbc::find_spell( this, enchant.ench_prop[ 0 ] );
+
+    windfury_icd = get_cooldown( "windfury_weapon_icd" );
+    windfury_icd->duration = windfury_driver->internal_cooldown();
+  }
 }
 
 double shaman_t::composite_melee_attack_power() const
@@ -325,6 +360,8 @@ double shaman_t::composite_melee_attack_power() const
   double ap = player_t::composite_melee_attack_power();
 
   ap += std::floor( talent.mental_dexterity->effectN( 1 ).percent() * cache.intellect() );
+
+  ap += buff.windfury_attack_power->check_value();
 
   return ap;
 }
@@ -451,6 +488,7 @@ struct flametongue_weapon_t : public shaman_spell_t
     shaman_spell_t::execute();
 
     p()->buff.rockbiter_weapon->expire();
+    p()->buff.windfury_weapon->expire();
     p()->buff.flametongue_weapon->trigger();
   }
 
@@ -479,12 +517,42 @@ struct rockbiter_weapon_t : public shaman_spell_t
     shaman_spell_t::execute();
 
     p()->buff.flametongue_weapon->expire();
+    p()->buff.windfury_weapon->expire();
     p()->buff.rockbiter_weapon->trigger();
   }
 
   bool ready() override
   {
     if ( p()->buff.rockbiter_weapon->check() )
+      return false;
+
+    return shaman_spell_t::ready();
+  }
+};
+
+struct windfury_weapon_t : public shaman_spell_t
+{
+  windfury_weapon_t( shaman_t* player, util::string_view options_str ) :
+    shaman_spell_t( "windfury_weapon", player, player->find_spell( max_rank( player, windfury_weapon_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+    harmful  = false;
+    may_miss = false;
+    target   = player;
+  }
+
+  void execute() override
+  {
+    shaman_spell_t::execute();
+
+    p()->buff.flametongue_weapon->expire();
+    p()->buff.rockbiter_weapon->expire();
+    p()->buff.windfury_weapon->trigger();
+  }
+
+  bool ready() override
+  {
+    if ( p()->buff.windfury_weapon->check() )
       return false;
 
     return shaman_spell_t::ready();
@@ -541,6 +609,9 @@ struct stormstrike_t : public shaman_attack_t
 
     if ( result_is_hit( s->result ) )
       td( s->target )->debuff.stormstrike->trigger();
+
+    // the Windfury driver procs from yellow melee too (Proc Flags: White Melee, Yellow Melee)
+    p()->trigger_windfury_weapon( s );
   }
 };
 
@@ -574,6 +645,35 @@ struct shaman_melee_t : public shaman_attack_t
 
     if ( result_is_hit( state->result ) && p()->buff.flametongue_weapon->check() )
       p()->flametongue_attack->execute_on_target( state->target );
+
+    p()->trigger_windfury_weapon( state );
+  }
+};
+
+// Windfury Weapon extra attack: a white main hand swing (the proc aura's proc flags are White Melee)
+struct windfury_attack_t : public shaman_attack_t
+{
+  windfury_attack_t( shaman_t* player ) :
+    shaman_attack_t( "windfury_attack", player, player->find_spell( max_rank( player, windfury_weapon_ranks ).proc_id ) )
+  {
+    weapon            = &player->equipped_weapons[ SLOT_MAIN_HAND ];
+    weapon_multiplier = 1.0;
+    school            = SCHOOL_PHYSICAL;
+    trigger_gcd       = 0_ms;
+
+    background        = true;
+    may_glance        = true;
+    may_crit          = true;
+    may_dodge         = true;
+    may_parry         = true;
+    special           = false;
+  }
+
+  void impact( action_state_t* state ) override
+  {
+    shaman_attack_t::impact( state );
+
+    p()->trigger_windfury_weapon( state );
   }
 };
 
@@ -631,6 +731,8 @@ action_t* shaman_t::create_action( util::string_view name, util::string_view opt
     return new flametongue_weapon_t( this, options_str );
   if ( name == "rockbiter_weapon" )
     return new rockbiter_weapon_t( this, options_str );
+  if ( name == "windfury_weapon" )
+    return new windfury_weapon_t( this, options_str );
 
   if ( name == "strength_of_earth_totem" )
     return new strength_of_earth_totem_t( this, options_str );
@@ -646,6 +748,17 @@ void shaman_t::create_buffs()
   buff.rockbiter_weapon = make_buff<stat_buff_t>(
       this, "rockbiter_weapon", find_spell( max_rank( this, rockbiter_weapon_ranks ).passive_id ) );
 
+  buff.windfury_weapon = make_buff( this, "windfury_weapon", find_spell( max_rank( this, windfury_weapon_ranks ).spell_id ) );
+
+  // Proc aura: Modify Attack Power (effect #1, scales per level) for 1.5 s with 3 charges (Proc Failure Burns
+  // Charge, Proc Flags: White Melee). Stacks are used as charges: each white swing that starts while it is up
+  // gets the attack power and uses one charge.
+  const spell_data_t* windfury_proc = find_spell( max_rank( this, windfury_weapon_ranks ).proc_id );
+  buff.windfury_attack_power = make_buff( this, "windfury_attack_power", windfury_proc )
+    ->set_default_value( windfury_proc->effectN( 1 ).average( this ) )
+    ->set_max_stack( std::max( 1, windfury_proc->initial_stacks() ) )
+    ->add_invalidate( CACHE_ATTACK_POWER );
+
   buff.strength_of_earth = make_buff<stat_buff_t>(
       this, "strength_of_earth", find_spell( max_rank( this, strength_of_earth_totem_ranks ).aura_id ) )
     ->set_duration( find_spell( max_rank( this, strength_of_earth_totem_ranks ).spell_id )->duration() );
@@ -654,8 +767,41 @@ void shaman_t::create_buffs()
 void shaman_t::create_actions()
 {
   flametongue_attack = new flametongue_attack_t( this );
+  if ( windfury_driver->ok() )
+    windfury_attack = new windfury_attack_t( this );
 
   player_t::create_actions();
+}
+
+// Windfury Weapon proc (2026-10-16). Assumptions, not verified in game yet:
+// * chance and internal cooldown from the enchant's driver spell, any landed main hand white or yellow hit
+// * the extra attacks are immediate white swings (proc spell effect #2, 2 attacks in build 70334, vanilla
+//   had 1) and do not reset the swing timer
+// * the attack power aura covers the extra swings and any further white swing within 1.5 s, up to its charges
+// * the Elemental Weapons talent bonus to the attack power (effect #3 of 16266) is not applied yet
+void shaman_t::trigger_windfury_weapon( action_state_t* s )
+{
+  if ( !windfury_attack || !buff.windfury_weapon->check() )
+    return;
+
+  // a white swing that started under the attack power aura uses one charge
+  if ( !s->action->special && buff.windfury_attack_power->check() )
+    buff.windfury_attack_power->decrement();
+
+  if ( !s->action->result_is_hit( s->result ) || windfury_icd->down() )
+    return;
+
+  if ( !rng().roll( windfury_driver->proc_chance() ) )
+    return;
+
+  windfury_icd->start();
+
+  const spell_data_t* proc = &windfury_attack->data();
+  buff.windfury_attack_power->trigger( buff.windfury_attack_power->max_stack() );
+
+  int extra_attacks = as<int>( proc->effectN( 2 ).base_value() );
+  for ( int i = 0; i < extra_attacks; i++ )
+    windfury_attack->execute_on_target( s->target );
 }
 
 void shaman_t::init_action_list()
