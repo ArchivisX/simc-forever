@@ -1,0 +1,23 @@
+# Forever hunter sanity sim: level 60 Survival in melee (Aspect of the Falcon, Raptor Strike, Mongoose Bite
+# via Expose Prey, Strider Kick, Lacerating Strikes, Lacerate) vs a level 63 boss. Talents 0/20/31 (spec 5.3).
+# Same gear as hunter-60-mm.simc (Ice Barbed Spear, 3.6 s polearm). The same talents with the ranged
+# (Marksmanship) APL, ammo_dps=17.5 and quiver_haste=15 sim about 50% higher (2026-10-16).
+hunter="Sanity_Hunter_60_SV"
+level=60
+race=night_elf
+role=attack
+position=back
+class_talents=improved_tracking:5/savage_strikes:2/survivalist:3/surefooted:3/deterrence:1/clever_traps:1/predators_edge:5/expose_prey:2/resourcefulness:2/strider_kick:1/137851:5/lacerating_strikes:1/lethal_attacks:5/careful_aim:5/efficiency:5/rapid_killing:2/improved_arcane_shot:3
+head=,id=16677
+neck=,id=18404
+shoulder=,id=16679
+chest=,id=16674
+waist=,id=16680
+legs=,id=16678
+feet=,id=16675
+wrist=,id=16681
+hands=,id=16676
+finger1=,id=18821
+finger2=,id=19325
+main_hand=,id=19106
+ranged=,id=18713

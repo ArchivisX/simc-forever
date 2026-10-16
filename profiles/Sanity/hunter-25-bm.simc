@@ -1,0 +1,21 @@
+# Forever hunter sanity sim: level 25 Beast Mastery leveling (cat pet, Summon Hawk rank 1 from the 16 point
+# milestone) vs a level 25 target (target_level+=0). Talents 16/0/0. Green/blue level 20-25 gear. Base stats above level 1 are
+# vanilla ESTIMATES; ammo_dps (Sharp Arrow) and quiver_haste (small quiver) are vanilla ESTIMATES.
+target_level+=0
+hunter="Sanity_Hunter_25_BM"
+level=25
+race=night_elf
+role=attack
+position=back
+class_talents=deadly_aspects:5/focused_fire:2/improved_aspect_of_the_monkey:3/unleashed_fury:5/summon_hawk:1
+ammo_dps=7.5
+quiver_haste=10
+shoulder=,id=4709
+chest=,id=2041
+waist=,id=3429
+legs=,id=3056
+feet=,id=1121
+wrist=,id=3230
+hands=,id=1978
+main_hand=,id=5200
+ranged=,id=3021
