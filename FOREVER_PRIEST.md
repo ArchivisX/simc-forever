@@ -16,10 +16,13 @@ Talent abilities are gated on the talent node, with the best trainer rank the pl
 - Shadow Word: Pain, Mind Blast, Devouring Plague (leech DoT, ticks crit), Shadow Word: Death (18 s).
 - Mind Flay: a channel, from the talent.
 - Vampiric Embrace: debuff only.
-- Shadowform: +10% Shadow damage, −50% Shadow cost, ×2.0 Shadow crits.
+- Shadowform: +10% Shadow damage, −50% Shadow cost, ×2.0 Shadow crits. `priest_t` is a `parse_player_effects_t`:
+  the A79 parts of Shadowform and Power Infusion and Shadow Weaving's A270 come from spell data
+  (`priest_t::parse_player_effects`); only the A72 cost part is code.
 - Talents with class code:
   - Shadow Focus: hit.
-  - Shadow Weaving: 2%/stack, caster-only, triggers on a landed cast.
+  - Shadow Weaving: 2%/stack, caster-only, triggers on a landed cast (not on wand shots: Shoot is a ranged
+    attack, the proc is Magic Hostile Spell). The debuff's A270 is parsed by `parse_player_effects()`.
   - Improved Mind Flay: ramp.
   - Dark Inspiration: from Mind Blast and from a full Mind Flay channel.
   - Early Demise.
@@ -56,7 +59,8 @@ Talent abilities are gated on the talent node, with the best trainer rank the pl
   1. SW:P
   2. DP
   3. Inner Focus → Mind Blast
-  4. SW:D
+  4. SW:D below 20% target health (Early Demise) or above 50% mana. Both builds are mana limited on a 300 s
+     fight, and Mind Flay does ~2× the damage per mana.
   5. Starshards
   6. Mind Flay
   7. wand
@@ -65,22 +69,25 @@ Talent abilities are gated on the talent node, with the best trainer rank the pl
   2. SW:P
   3. Holy Fire
   4. Inner Focus → Penance
-  5. Mind Blast
-  6. SW:D
-  7. DP
-  8. Smite
-  9. wand
+  5. Holy Nova on Holy Purpose (free, from Searing Light)
+  6. Mind Blast, SW:D above 50% mana (17% miss without Shadow Focus). No DP: ~0.95 damage per mana without
+     Shadowform.
+  7. Smite
+  8. wand
 
 ## Results (1000 iterations, 300 s Patchwerk vs level 63, default raid buffs)
 
 | Profile | DPS | Top 5 by damage | Mana |
 |---|---|---|---|
-| L60 Shadow (14/0/37) | 294.5 | Mind Flay 59.4%, SW:P 13.8%, Mind Blast 12.0%, DP 7.6%, SW:D 4.7% | OOM late; wand 2.5%; Waiting 0% |
-| L60 Smite (31/20/0) | 124.0 | Holy Fire 30.8%, Smite 24.2%, wand 22.3%, SW:P 8.8%, Penance 4.7% | OOM early (no Shadowform cost cut); Waiting 0% |
-| L25 Shadow leveling (vs L25) | 23.2 | Mind Flay 49.6%, wand 35.6%, Mind Blast 6.3%, SW:P 4.5%, DP 4.0% | OOM within ~1 min, then wand |
+| L60 Shadow (14/0/37) | 297.6 | Mind Flay 60.0%, SW:P 15.0%, Mind Blast 12.5%, DP 7.8%, SW:D 2.3% | OOM late; wand 2.3%; Waiting 0% |
+| L60 Smite (31/20/0) | 132.6 | Holy Fire 29.5%, Smite 27.1%, wand 18.5%, SW:P 10.7%, Holy Nova 5.9% | OOM early (no Shadowform cost cut); Waiting 0% |
+| L25 Shadow leveling (vs L25) | 22.2 | Mind Flay 49.5%, wand 35.2%, Mind Blast 6.6%, SW:P 4.7%, DP 4.1% | OOM within ~1 min, then wand |
+
+(Independent check 2026-10-16: before the wand/Shadow Weaving fix and the APL changes these were 294.6 / 124.0 / 23.2.)
 
 Spot checks:
-- Mind Blast R9 crit is ≈2× hit in Shadowform.
+- Mind Blast R9 crit is ≈2× hit in Shadowform. The cooldown is 5.5 s, but Mind Flay is never clipped, so Mind Blast
+  lands every ~8-9.5 s.
 - Mind Flay ticks run 209→251→301 (×1.2 per tick at 2/2).
 - SW:P lasts 24 s.
 - DP R6 costs 985 → 246 (Shadowform + Devouring Contagion 2/2).
@@ -151,7 +158,9 @@ the spec's headline finding: Forever's Smite and Holy Fire top ranks are about 4
    - Workaround: `priest.wand=min:max:speed[:school]`. Hunters, mages and warlocks need the same.
 2. **Category cooldown beats talent cooldown mods.** `action_t::init` prefers `charge_cooldown()` (the classic category
    cooldown), so A107 cooldown talents are lost, for example Improved Mind Blast's 8 → 5.5 s. Workaround: Mind Blast uses
-   the modified `data().cooldown()`.
+   the modified `data().cooldown()`. Engine fix: in the passive spell modification in `player.cpp` (the `P_COOLDOWN`
+   case next to the `A_MODIFY_CATEGORY_COOLDOWN` handling), also modify `category_cooldown` when it equals `cooldown`,
+   as the client applies SPELLMOD_COOLDOWN to both recovery times.
 3. **"Requires weapon" passives.** Wand Specialization (A79, all magic schools) is applied to every spell by the passive
    parse. Workaround: `deregister_passive_spell` plus a wand-only multiplier. The engine should skip or limit
    equipped-item-gated passives.
@@ -159,4 +168,9 @@ the spec's headline finding: Forever's Smite and Holy Fire top ranks are about 4
    PARSE_PASSIVE)` for Shadow Focus and Holy Precision.
 5. **Aura 72** (Modify Power Cost% by school, Shadowform) and **aura 174** (spell power from % of a stat, Spiritual
    Guidance) as generic parse support.
-6. **Foundation contract:** the warrior L60 sample is 67.9 DPS on `foundation` @ 7857febf22, not ~96.
+6. **HTML report talents.** `report_html_player.cpp` `print_html_talents` sizes the class grid from
+   `class_columns()`, which skips traits whose `id_spec` does not match the actor's spec. Priest traits reach column 13
+   (Improved Mind Flay) but the grid gets 12 columns, so `class_traits.at( row ).at( col - 1 )` throws and the HTML report
+   is cut short ("vector::_M_range_check: __n (which is 12)"). Use the max column of all class traits, or of the
+   player's selected traits. Druid and rogue samples hit the same error.
+7. **Foundation contract:** the warrior L60 sample is 67.9 DPS on `foundation` @ 7857febf22, not ~96.

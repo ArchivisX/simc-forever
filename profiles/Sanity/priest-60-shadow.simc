@@ -1,7 +1,7 @@
 # Forever priest sample: level 60 Shadow (Shadowform) vs a level 63 boss, default APL.
 # Gear is a stat stand-in for a fresh level 60 in dungeon blues (no real addon export exists yet):
 # ~+250 spell power, +150 Int, +110 Spi. Talents 14/0/37 by name (class_talents=), not an addon string.
-# Check: Shadowform up, Mind Blast every ~5.5-7 s (Improved Mind Blast 5/5), SW:P 8 ticks, Shadow Weaving at
+# Check: Shadowform up, Mind Blast on a 5.5 s cooldown (Improved Mind Blast 5/5) but cast every ~8-9.5 s (no Mind Flay clipping), SW:P 8 ticks, Shadow Weaving at
 # 5 stacks, Mind Flay ticks ramping (Improved Mind Flay), mana lasting most of the fight.
 priest="Sample_Priest_Shadow_60"
 level=60
