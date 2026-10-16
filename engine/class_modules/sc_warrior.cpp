@@ -109,8 +109,8 @@ constexpr std::array execute_ranks {
   spell_rank_t{ 20662 },
 };
 
-// 2026-10-16: Forever's rank 1 is a new level 20 spell; 1310196-1310200 are a second copy of the ranks
-// that is not in the warrior SkillLineAbility list, so we use the ids the trainer teaches.
+// 2026-10-16: Forever's rank 1 is a new level 20 spell. 1310196-1310200 are the Improved Slam versions
+// of these ranks (see slam_t), not taught by the trainer.
 constexpr std::array slam_ranks {
   spell_rank_t{ 1240193 },
   spell_rank_t{ 1464 },
@@ -192,6 +192,8 @@ struct warrior_t : public player_t
     // Arms
     // Row 1
     player_talent_t deflection;
+
+    player_talent_t improved_slam;
 
     // Row 7
     player_talent_t mortal_strike;
@@ -729,13 +731,31 @@ struct execute_t : public warrior_attack_t
 };
 
 // Slam has a cast time (and in Forever an 18 s cooldown) from the spell data.
-// 2026-10-16: In vanilla, finishing a Slam restarts the main hand swing timer; we model that. The
-// swing timer pausing during the cast is not modelled, so a white swing may still land mid-cast.
-// TODO: Verify both on Forever.
+// 2026-10-16: Forever's Improved Slam replaces the known rank with a copy (Override Action Spell effects:
+// misc value = the replaced rank, base value = the replacement) that has "Do Not Reset Combat Timers"; the
+// trainer ranks restart the main hand swing timer when the cast finishes, as in vanilla. The swing timer
+// pausing during the cast is not modelled, so a white swing may still land mid-cast.
+// TODO: Verify the swing timer behaviour on Forever.
 struct slam_t : public warrior_attack_t
 {
+  // spell attribute 81, no named spell_attribute value yet
+  static constexpr auto SX_DO_NOT_RESET_COMBAT_TIMERS = static_cast<spell_attribute>( 81u );
+
+  static const spell_data_t* slam_spell( warrior_t* p )
+  {
+    const spell_data_t* spell = p->find_spell( max_rank( p, slam_ranks ).spell_id );
+
+    for ( const auto& eff : p->talent.improved_slam->effects() )
+    {
+      if ( eff.subtype() == A_OVERRIDE_ACTION_SPELL && as<unsigned>( eff.misc_value1() ) == spell->id() )
+        return p->find_spell( as<unsigned>( eff.base_value() ) );
+    }
+
+    return spell;
+  }
+
   slam_t( warrior_t* player, util::string_view options_str ) :
-    warrior_attack_t( "slam", player, player->find_spell( max_rank( player, slam_ranks ).spell_id ) )
+    warrior_attack_t( "slam", player, slam_spell( player ) )
   {
     parse_options( options_str );
   }
@@ -743,6 +763,9 @@ struct slam_t : public warrior_attack_t
   void execute() override
   {
     warrior_attack_t::execute();
+
+    if ( data().flags( SX_DO_NOT_RESET_COMBAT_TIMERS ) )
+      return;
 
     action_t* swing = player->main_hand_attack;
     if ( swing && swing->execute_event )
@@ -852,6 +875,7 @@ void warrior_t::init_spells()
 {
   player_t::init_spells();
 
+  talent.improved_slam = find_talent_spell( talent_tree::CLASS, "Improved Slam" );
   talent.mortal_strike = find_talent_spell( talent_tree::CLASS, "Mortal Strike" );
   talent.bloodthirst   = find_talent_spell( talent_tree::CLASS, "Bloodthirst" );
 
