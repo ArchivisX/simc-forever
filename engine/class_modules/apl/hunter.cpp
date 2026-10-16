@@ -31,8 +31,9 @@ std::string temporary_enchant( const player_t* )
 }
 //hunter_apl_start
 // Forever 2026-10-16. The tree is picked from the talents (Survival > Marksmanship/Lone Wolf > Beast Mastery).
-// Auto Shot clipping: hunter casts (Aimed, Sniper) are gated on not delaying the next Auto Shot, i.e. cast
-// right after a shot lands, or when the cast plus the 0.5 s aim still fits before the next shot.
+// Auto Shot clipping: hunter casts (Aimed, Sniper) are gated on not delaying the next Auto Shot (the cast plus
+// the 0.5 s aim fits before the next shot). Instant Multi-Shot shares Aimed Shot's cooldown and beats a clipping
+// Aimed Shot (2026-10-16 sims: +3-4% at L60 BM/MM with a 2.5 s Auto Shot), so it takes the cooldown otherwise.
 static bool has_talent( const player_t* p, std::string_view name )
 {
   return p->find_talent_spell( talent_tree::CLASS, name ).rank() > 0;
@@ -47,11 +48,10 @@ static void ranged_mana( action_priority_list_t* default_ )
 static void ranged_shots( action_priority_list_t* default_ )
 {
   default_->add_action( "serpent_sting,if=!ticking&target.time_to_die>12" );
-  default_->add_action( "sniper_shot,if=auto_shot.time_to_next>=auto_shot.speed-0.5|auto_shot.time_to_next>=cast_time+0.5",
-                        "Casts only right after an Auto Shot or when they fit before the next one (no clipping)" );
-  default_->add_action( "aimed_shot,if=auto_shot.time_to_next>=auto_shot.speed-0.5|auto_shot.time_to_next>=cast_time+0.5" );
-  default_->add_action( "multi_shot,if=spell_targets>=2|!action.aimed_shot.enabled",
-                        "Shares the Aimed Shot cooldown; only worth it on 2+ targets or before Aimed Shot is learned" );
+  default_->add_action( "sniper_shot,if=auto_shot.time_to_next>=cast_time+0.5",
+                        "Casts only when they fit before the next Auto Shot (no clipping)" );
+  default_->add_action( "aimed_shot,if=auto_shot.time_to_next>=cast_time+0.5" );
+  default_->add_action( "multi_shot", "Shares the Aimed Shot cooldown" );
   default_->add_action( "arcane_shot,if=mana.pct>=20|buff.aspect_of_the_viper.up" );
 }
 
