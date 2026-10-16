@@ -568,7 +568,7 @@ static constexpr auto _attribute_strings = util::make_static_map<unsigned, std::
   { 78, "Allow While Invisible"                                                  },
   { 79, "Do Not Consume if Gained During Cast"                                   },
   { 80, "No Active Pets"                                                         },
-  { 81, "Do Not Reset Combat Timers"                                             },
+  { SX_DO_NOT_RESET_COMBAT_TIMERS, "Do Not Reset Combat Timers"                          },  // 81
   { 82, "No Jump While Cast Pending"                                             },
   { 83, "Allow While Not Shapeshifted (caster form)"                             },
   { 84, "Initiate Combat Post-Cast (Enables Auto-Attack)"                        },
@@ -704,7 +704,7 @@ static constexpr auto _attribute_strings = util::make_static_map<unsigned, std::
   { 214, "Absorb Cannot Be Ignore"                                               },
   { 215, "Taps immediately"                                                      },
   { 216, "Can Target Untargetable"                                               },
-  { 217, "Doesn't Reset Swing Timer if Instant"                                  },
+  { SX_DONT_RESET_SWING_IF_INSTANT, "Doesn't Reset Swing Timer if Instant"                },  // 217
   { 218, "Vehicle Immunity Category"                                             },
   { 219, "Ignore Healing Modifiers"                                              },
   { 220, "Do Not Auto Select Target with Initiates Combat"                       },
