@@ -220,7 +220,6 @@ struct mage_t final : public player_t
   {
     gain_t* master_of_elements = nullptr;
     gain_t* mana_gem           = nullptr;
-    gain_t* evocation          = nullptr;
   } gain;
 
   struct procs_t
@@ -318,7 +317,6 @@ public:
   bool affected_by_clearcasting     = false;
   bool affected_by_presence_of_mind = false;
   bool affected_by_missile_barrage  = false;
-  bool affected_by_heating_up       = false;
   bool affected_by_combustion       = false;
   // proc behaviour (set by the derived spells)
   bool triggers_arcane_concentration = true;
@@ -331,32 +329,6 @@ public:
   mage_action_t( Args&&... args ) : ab( std::forward<Args>( args )... )
   {
     this->may_crit = true;
-  }
-
-  mage_t* p()
-  { return debug_cast<mage_t*>( this->player ); }
-
-  const mage_t* p() const
-  { return debug_cast<const mage_t*>( this->player ); }
-
-  mage_td_t* td( player_t* t ) const
-  { return p()->get_target_data( t ); }
-
-  void init() override
-  {
-    ab::init();
-
-    // Not in the constructor: buffs are created after actions are constructed for some precombat lists
-    parse_mage_effects();
-  }
-
-  bool effects_parsed = false;
-
-  void parse_mage_effects()
-  {
-    if ( effects_parsed )
-      return;
-    effects_parsed = true;
 
     auto& b = p()->buff;
 
@@ -378,15 +350,20 @@ public:
       return static_cast<mage_td_t*>( t )->debuff.winters_chill->check();
     }, p()->spell.winters_chill );
 
-    auto affected = [ this ]( buff_t* buff ) {
-      return buff && buff->data().ok() && this->data().affected_by( buff->data().effectN( 1 ) );
-    };
-    affected_by_clearcasting     = affected( b.clearcasting );
-    affected_by_presence_of_mind = affected( b.presence_of_mind );
-    affected_by_missile_barrage  = affected( b.missile_barrage );
-    affected_by_heating_up       = affected( b.heating_up );
-    affected_by_combustion       = affected( b.combustion_crit );
+    affected_by_clearcasting     = this->data().affected_by( b.clearcasting->data().effectN( 1 ) );
+    affected_by_presence_of_mind = this->data().affected_by( b.presence_of_mind->data().effectN( 1 ) );
+    affected_by_missile_barrage  = this->data().affected_by( b.missile_barrage->data().effectN( 1 ) );
+    affected_by_combustion       = this->data().affected_by( b.combustion_crit->data().effectN( 1 ) );
   }
+
+  mage_t* p()
+  { return debug_cast<mage_t*>( this->player ); }
+
+  const mage_t* p() const
+  { return debug_cast<const mage_t*>( this->player ); }
+
+  mage_td_t* td( player_t* t ) const
+  { return p()->get_target_data( t ); }
 
   bool is_fire() const
   { return dbc::is_school( this->get_school(), SCHOOL_FIRE ); }
@@ -1387,7 +1364,6 @@ void mage_t::init_gains()
 
   gain.master_of_elements = get_gain( "master_of_elements" );
   gain.mana_gem           = get_gain( "mana_gem" );
-  gain.evocation          = get_gain( "evocation" );
 }
 
 void mage_t::init_procs()
