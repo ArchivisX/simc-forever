@@ -2109,8 +2109,14 @@ void action_t::assess_damage( result_amount_type rt, action_state_t* state )
   // Execute outbound damage assessor pipeline on the state object
   player->assessor_out_damage.execute( rt, state );
 
+  // Forever 2026-10-16: classic DoTs (Rend, Corruption, ...) have no initial damage, but the
+  // application itself rolls on the hit table. Record landed applications too, otherwise the
+  // result table only contains the avoided ones and reports e.g. "Miss=55% Dodge=45%".
+  bool landed_dot_application = rt == result_amount_type::DMG_DIRECT && state->result_raw == 0 &&
+                                result_is_hit( state->result ) && dot_duration > 0_ms;
+
   // TODO: Should part of this move to assessing, priority_iteration_damage for example?
-  if ( state->result_raw > 0 || result_is_miss( state->result ) )
+  if ( state->result_raw > 0 || result_is_miss( state->result ) || landed_dot_application )
   {
     if ( sim->fight_style == FIGHT_STYLE_DUNGEON_SLICE || sim->fight_style == FIGHT_STYLE_DUNGEON_ROUTE )
     {
