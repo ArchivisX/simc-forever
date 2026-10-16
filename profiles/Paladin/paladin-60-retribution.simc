@@ -1,0 +1,23 @@
+# Forever paladin sample: level 60 Undead (Horde) Retribution "Twist" (20 Holy / 31 Ret) vs a level 63 boss.
+# Seal of the Crusader -> Judgement of the Crusader once (melee and Holy Strike keep it up), then Seal of
+# Command with Judgement on cooldown; Twist of Light swaps in Seal of Righteousness after swings while mana allows.
+# Base stats L31-60 are ESTIMATE rows (vanilla). Talents by simc trait name (no paladin addon export exists yet).
+# Gear: pre-raid melee pieces that exist in the Forever item data, 2H Arcanite Reaper.
+paladin="Forever_Paladin_60_Retribution"
+level=60
+race=undead
+role=attack
+position=back
+class_talents=divine_strength:5/divine_intellect:5/improved_seals:3/purifying_power:2/reverence:3/divine_favor:1/unyielding_faith:1/benediction:5/conviction:5/improved_judgement:2/seal_of_command:1/sanctified_judgement:3/vindication:3/sacred_arbiter:1/vengeance:3/twohanded_weapon_specialization:3/champion_of_the_light:3/instrument_of_law:1/twist_of_light:1
+head=,id=12640
+neck=,id=18404
+shoulders=,id=15051
+chest=,id=13090
+wrists=,id=16722
+hands=,id=15063
+waist=,id=20041
+legs=,id=15062
+feet=,id=16984
+finger1=,id=19325
+finger2=,id=18821
+main_hand=,id=12784
