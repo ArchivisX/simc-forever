@@ -106,7 +106,6 @@ constexpr std::array blessing_of_kings_ranks {
 };
 
 constexpr unsigned judgement_id       = 20271;
-constexpr unsigned vengeance_buff_id  = 20050;
 constexpr unsigned vindication_buff_id = 440667;  // only the duration is used; the self buff value is the talent's
 
 // Hammer of Wrath is only usable on targets at or below this health percentage (spell description)
@@ -124,27 +123,13 @@ constexpr double seal_of_command_default_ppm = 7.0;
 // 2026-10-16 ESTIMATE: Seal of Righteousness per swing damage is server side. The tooltip ranges from
 // (s/87 + 0.0765 SP) to (s/25 + 0.12 SP) times (1 + Improved Seals), "slower weapons cause more Holy damage".
 // We use the vanilla per weapon speed formula (1H: s * 0.85 * speed / 100, 2H: s * 1.2 * speed / 100), which
-// reproduces the tooltip ends at 1.35 s (1H) and 3.33 s (2H), with the flat tooltip SP coefficients.
+// reproduces the tooltip ends at 1.35 s (1H) and 3.33 s (2H), with the flat tooltip SP coefficients. The SP
+// coefficients and the Improved Seals multiplier are the description variables of 20293 ($1h, $2h, $mult), which
+// the spell data accessors don't expose.
 constexpr double sor_1h_factor  = 0.85;
 constexpr double sor_2h_factor  = 1.2;
 constexpr double sor_1h_sp_coef = 0.0765;
 constexpr double sor_2h_sp_coef = 0.12;
-
-// The client spell data skips effect indices (seal effects are #1 and #3), so look effects up by index.
-const spelleffect_data_t& effect_at( const spell_data_t* spell, unsigned idx )
-{
-  for ( const spelleffect_data_t& eff : spell->effects() )
-    if ( eff.id() != 0 && eff.index() + 1 == idx )
-      return eff;
-
-  return spelleffect_data_t::nil();
-}
-
-// Spell of a talent, or not_found if the talent isn't taken
-const spell_data_t* talent_spell( const player_talent_t& t )
-{
-  return t.ok() ? t.spell() : spell_data_t::not_found();
-}
 
 enum seal_e
 {
@@ -286,7 +271,7 @@ paladin_td_t::paladin_td_t( player_t* target, paladin_t* p ) : actor_target_data
 {
   // Judgement of the Crusader: flat Holy damage taken (effect #1, A14), from the active seal's rank
   const spell_data_t* sotc = max_rank_spell( p, seal_of_the_crusader_ranks );
-  const spell_data_t* jotc = sotc->ok() ? dbc::find_spell( p, as<unsigned>( effect_at( sotc, 3 ).base_value() ) )
+  const spell_data_t* jotc = sotc->ok() ? dbc::find_spell( p, as<unsigned>( sotc->effectN( 3 ).base_value() ) )
                                         : spell_data_t::not_found();
   debuff.judgement_of_the_crusader = make_buff( *this, "judgement_of_the_crusader", jotc )
     ->set_default_value( jotc->ok() ? jotc->effectN( 1 ).base_value() : 0.0 );
@@ -586,7 +571,7 @@ struct paladin_melee_t : public paladin_attack_t
 
     const buff_t* sotc = p()->buff.seal[ SEAL_CRUSADER ];
     if ( sotc->check() )
-      m /= 1.0 + effect_at( &sotc->data(), 2 ).percent();
+      m /= 1.0 + sotc->data().effectN( 2 ).percent();
 
     return m;
   }
@@ -753,7 +738,7 @@ struct blessing_of_kings_t : public paladin_self_spell_t
 struct swift_judgement_t : public paladin_self_spell_t
 {
   swift_judgement_t( paladin_t* p, util::string_view options_str ) :
-    paladin_self_spell_t( "swift_judgement", p, talent_spell( p->talent.swift_judgement ), options_str )
+    paladin_self_spell_t( "swift_judgement", p, p->talent.swift_judgement, options_str )
   {
     if ( !p->talent.swift_judgement.ok() )
       background = true;
@@ -775,7 +760,7 @@ struct swift_judgement_t : public paladin_self_spell_t
 struct divine_favor_t : public paladin_self_spell_t
 {
   divine_favor_t( paladin_t* p, util::string_view options_str ) :
-    paladin_self_spell_t( "divine_favor", p, talent_spell( p->talent.divine_favor ), options_str )
+    paladin_self_spell_t( "divine_favor", p, p->talent.divine_favor, options_str )
   {
     if ( !p->talent.divine_favor.ok() )
       background = true;
@@ -842,7 +827,7 @@ struct consecration_tick_t : public paladin_spell_t
       spell_power_mod.direct = tick->effectN( 2 ).sp_coeff();
     }
     if ( cast->ok() )
-      first_targets = as<int>( effect_at( cast, 3 ).base_value() );
+      first_targets = as<int>( cast->effectN( 3 ).base_value() );
 
     base_dd_min = base_dd_max = 0.0;
   }
@@ -884,7 +869,7 @@ struct consecration_t : public paladin_spell_t
                                      .target( execute_state->target )
                                      .x( p()->x_position )
                                      .y( p()->y_position )
-                                     .pulse_time( effect_at( &data(), 3 ).period() )
+                                     .pulse_time( data().effectN( 3 ).period() )
                                      .duration( duration )
                                      .action( tick ) );
   }
@@ -1022,7 +1007,7 @@ struct holy_shock_t : public paladin_spell_t
       vigil_damage->execute_on_target( target );
 
       action_t* cast = p()->find_action( "lights_vigil" );
-      double refund  = cast ? effect_at( &cast->data(), 2 ).percent() * cast->last_resource_cost : 0.0;
+      double refund  = cast ? cast->data().effectN( 2 ).percent() * cast->last_resource_cost : 0.0;
       p()->resource_gain( RESOURCE_MANA, refund, p()->gain.lights_vigil, this );
     }
   }
@@ -1182,7 +1167,7 @@ double paladin_t::composite_melee_auto_attack_speed() const
 
   // Seal of the Crusader: +40% attack speed (effect #2, A9)
   if ( buff.seal[ SEAL_CRUSADER ]->check() )
-    s /= 1.0 + effect_at( &buff.seal[ SEAL_CRUSADER ]->data(), 2 ).percent();
+    s /= 1.0 + buff.seal[ SEAL_CRUSADER ]->data().effectN( 2 ).percent();
 
   return s;
 }
@@ -1297,8 +1282,7 @@ void paladin_t::create_buffs()
                              ->set_pct_buff_type( STAT_PCT_BUFF_SPIRIT );
 
   // Vengeance: the per stack value is the talent rank's (1/2/3%), the buff spell carries duration and stacks
-  buff.vengeance = make_buff( this, "vengeance", talent.vengeance.ok() ? find_spell( vengeance_buff_id )
-                                                                       : spell_data_t::not_found() )
+  buff.vengeance = make_buff( this, "vengeance", talent.vengeance->effectN( 1 ).trigger() )
                      ->set_default_value( talent.vengeance->effectN( 1 ).percent() )
                      ->set_schools_from_effect( 1 )
                      ->add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
@@ -1308,10 +1292,10 @@ void paladin_t::create_buffs()
                        ->set_default_value( talent.vindication->effectN( 1 ).percent() )
                        ->add_invalidate( CACHE_ATTACK_POWER );
 
-  buff.divine_favor = make_buff( this, "divine_favor", talent_spell( talent.divine_favor ) )
+  buff.divine_favor = make_buff( this, "divine_favor", talent.divine_favor )
                         ->set_cooldown( 0_ms );
 
-  buff.swift_judgement = make_buff( this, "swift_judgement", talent_spell( talent.swift_judgement ) )
+  buff.swift_judgement = make_buff( this, "swift_judgement", talent.swift_judgement )
                            ->set_cooldown( 0_ms );
 }
 
@@ -1327,7 +1311,7 @@ void paladin_t::create_actions()
   const spell_data_t* sotc = max_rank_spell( this, seal_of_the_crusader_ranks );
 
   auto judgement_spell = [ this ]( const spell_data_t* seal ) {
-    return seal->ok() ? find_spell( as<unsigned>( effect_at( seal, 3 ).base_value() ) ) : spell_data_t::not_found();
+    return seal->ok() ? find_spell( as<unsigned>( seal->effectN( 3 ).base_value() ) ) : spell_data_t::not_found();
   };
 
   if ( sor->ok() )
