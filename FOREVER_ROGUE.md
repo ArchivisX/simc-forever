@@ -26,8 +26,9 @@ come from the 70425 data, through `parse_all_passive_talents()` and `parse_effec
   target), Premeditation (+2 CP while stealthed, lost after 20 s), Preparation (resets every other cooldown) and
   Stealth (precombat).
 - **Poisons.** `apply_poison,mh=instant|deadly,oh=instant|deadly`.
-  - Proc chance per landed white or yellow hit of that hand: SpellItemEnchantment amount, plus Improved Poisons,
-    plus Venom.
+  - Ranks are the application spells (Instant 8679–11340, Deadly 2823–25351). Proc chance per landed white or
+    yellow hit of that hand is the application spell's proc chance (Improved Poisons is parsed into it), plus
+    Venom. The proc spell comes from the item enchantment named by the application spell's effect #1.
   - Instant is a direct Nature hit. Deadly is a 12 s DoT that stacks to 5.
   - Poisons roll Nature spell hit, with partial resists from the engine.
 - **Coded talents.**
@@ -42,12 +43,22 @@ come from the 70425 data, through `parse_all_passive_talents()` and `parse_effec
   Execution, Vile Poisons, Opportunity, Improved Ambush, Serrated Blades (armor % and Rupture), Vigor, Weapon
   Expertise (engine expertise reduces dodge/parry), Dirty Deeds and Endurance. Debug output confirms the curve
   values, for example Lethality 20% and Improved Eviscerate 20%.
-- **APL.** `rogue_apl::rogue()` picks the tree from its signature talents and the builder from the equipped weapons.
+- **APL.** `rogue_apl::rogue()` is plain action lists: precombat variables pick the tree from its signature
+  talents (`variable.assassination`, `variable.subtlety`), Mutilate from two daggers (`variable.mutilate`) and
+  Slice and Dice from the level (`variable.snd`); the default list calls the `assassination`, `combat` or
+  `subtlety` list. Backstab needs a main hand dagger, otherwise Sinister Strike.
   - Assassination: Mutilate, finish at 4 CP, Deadly Poison MH and Instant Poison OH.
   - Combat: SS/Backstab with BF, AR and Instant/Instant.
   - Subtlety: Stealth, Premeditation and Ambush opener, Hemorrhage builder, Rupture with Hemorrhage up, Ghostly
     Strike.
   - Slice and Dice only from level 42 (rank 2): rank 1 loses to Eviscerate (L25 −8%).
+
+## Independent check (2026-10-16)
+
+Fixed: Subtlety Preparation never fired (it waited on an untalented Cold Blood); Preparation reset items, potions
+and racials; the Subtlety sample failed the tier gates (and now drops 5 dead Cutthroat points); finisher combo
+points moved into the action state; poisons and talent combo point gains read from data; the APL is plain action
+lists. DPS of all four samples is unchanged within error.
 
 ## Results (1000 iterations, 300 s, level 63 boss, default raid buffs)
 
@@ -101,7 +112,8 @@ come from the 70425 data, through `parse_all_passive_talents()` and `parse_effec
 - **Venom.** Implemented, but not in the default APL: at 4 CP it loses about 2% to Eviscerate with the sample gear.
   Add `venom,if=combo_points>=4&buff.venom.remains<1` to test it.
 - **APL and expressions.** No `apl_variant=` option, and no `energy.next_tick_amount` expression.
-- **Combo points.** They are on the player, not on the target.
+- **Combo points.** They are on the player, not on the target. A finisher's points are snapshot in
+  `rogue_action_state_t` (retail pattern), so a Rupture keeps its own value.
 - **Talent strings.** Profiles use `class_talents=` because there is no rogue addon export. Shared issue: the
   generated `talents=` hash prints `CAAAA…`, which the mage agent also saw.
 
@@ -121,5 +133,11 @@ come from the 70425 data, through `parse_all_passive_talents()` and `parse_effec
 7. Make `generate_traits_hash` produce a real hash from `class_talents=` input.
 8. Fix item hit rating: `composite_melee_hit_rating` is commented out of `composite_melee_hit`.
 9. Record zero-damage attack casts (Mutilate) as hits. The report shows only their misses and dodges (cosmetic).
-10. Measure the rogue base stat rows (V-R0), the energy tick (V-R1), and poison and Rupture AP scaling
+10. `player_t::init_talents` (player.cpp, the trait curve loop around line 3245): skip a curve whose effect
+    no longer exists (`spell->effectN( eff_idx ).id() == 0`). Heightened Senses (30894) has curves for effect #1,
+    which 70425 removed, and `register_effect( 0 )` throws "Invalid effect id '0'": any build with that talent
+    fails init.
+11. Move the "Discount Power On Miss" rule (20% of the cost on a miss, dodge or parry) from the warrior and rogue
+    modules into `action_t::consume_resource` behind a `classic_*` option; both modules carry the same copy.
+12. Measure the rogue base stat rows (V-R0), the energy tick (V-R1), and poison and Rupture AP scaling
     (V-R4/V-R5).
