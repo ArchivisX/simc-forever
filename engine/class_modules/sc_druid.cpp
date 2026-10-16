@@ -300,9 +300,8 @@ druid_td_t::druid_td_t( player_t* target, druid_t* p ) : actor_target_data_t( ta
 
   // 2026-10-16: the armor reduction is client aura type 674 (unknown to simc) with the flat armor as its
   // negative base value, as for warrior Sunder Armor. Only this druid's own attacks see it.
-  debuff.faerie_fire = make_buff( *this, "faerie_fire", p->find_spell( max_rank( p, faerie_fire_ranks ).spell_id ) )
-                         ->set_default_value( p->find_spell( max_rank( p, faerie_fire_ranks ).spell_id )
-                                                ->effectN( 1 ).base_value() );
+  debuff.faerie_fire = make_buff( *this, "faerie_fire", forever::max_rank_spell( p, faerie_fire_ranks ) )
+                         ->set_default_value_from_effect( 1, 1.0 );
 }
 
 // ==========================================================================
@@ -329,7 +328,7 @@ public:
   template <typename... Args>
   druid_action_t( Args&&... args ) : ab( std::forward<Args>( args )... )
   {
-    affected_by_clearcasting = this->data().affected_by( this->p()->find_spell( CLEARCASTING )->effectN( 1 ) );
+    affected_by_clearcasting = this->data().affected_by( p()->buff.clearcasting->data().effectN( 1 ) );
 
     // Berserk: +100% crit for combo point builders (effect #1), Primal Bite effects are bear only
     this->parse_effects( p()->buff.berserk );
@@ -386,13 +385,10 @@ public:
   {
     ab::impact( s );
 
-    if ( this->harmful && !this->background_proc() )
+    // the actions' own impacts only, not ticks or proc actions
+    if ( this->harmful && !this->proc )
       p()->trigger_omen_of_clarity( s );
   }
-
-  // procs from the actions' own impacts only, not from ticks or the proc actions themselves
-  bool background_proc() const
-  { return this->proc; }
 };
 
 using druid_spell_t  = druid_action_t<spell_t>;
