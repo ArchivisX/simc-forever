@@ -15264,6 +15264,25 @@ void player_t::parse_passive_effects( const spell_data_t* spell, bool force, par
     return;
   }
 
+  // Forever: a passive that requires a weapon type (Two-Handed Weapon Specialization, Poleaxe Specialization, Wand
+  // Specialization, ...) does nothing unless such a weapon is equipped. A passive that should only affect the attacks
+  // made with that weapon still needs the class module to deregister it and apply it itself.
+  if ( !force && spell->equipped_class() == ITEM_CLASS_WEAPON && spell->equipped_subclass_mask() && !is_pet() &&
+       !is_enemy() )
+  {
+    auto equipped = range::any_of( std::array{ SLOT_MAIN_HAND, SLOT_OFF_HAND, SLOT_RANGED }, [ this, spell ]( slot_e s ) {
+      const auto& w = equipped_weapons[ s ];
+      return w.type != WEAPON_NONE &&
+             ( spell->equipped_subclass_mask() & ( 1U << static_cast<unsigned>( util::translate_weapon( w.type ) ) ) );
+    } );
+
+    if ( !equipped )
+    {
+      sim->print_debug( "Not registering {}, required weapon type is not equipped.", *spell );
+      return;
+    }
+  }
+
   bool success = false;
 
   // go thru all the effects on the modifying spell
