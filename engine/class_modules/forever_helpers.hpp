@@ -73,7 +73,7 @@ inline unsigned rank_number( const player_t* player, const spell_data_t* spell )
   return util::to_unsigned( std::string( sv.substr( 5 ) ) );
 }
 
-// All ranks of a class spell by name, sorted by spell level (then id), regardless of player level.
+// All ranks of a class spell by name, best last, regardless of player level.
 // Matches the client spell name exactly and the player's (or a pet's owner's) class spell family, and
 // keeps only spells with "Rank N" text unless the name has no ranked entries at all. Spells with
 // SkillLineAbility AcquireMethod 3 (Season of Discovery leftovers) are not filtered here; prefer
@@ -97,15 +97,23 @@ inline std::vector<const spell_data_t*> rank_spells( const player_t* player, std
       unranked.push_back( &spell );
   }
 
+  // Order: spell level, then rank number (Forever has several ranks at the same level, e.g. Shadow Bolt
+  // 9 and 10 are both level 60), then the higher spell id first so that among duplicates of the same rank
+  // (e.g. Season of Discovery copies) the original, lowest id ends up last = preferred.
   auto& out = ranked.empty() ? unranked : ranked;
-  range::sort( out, []( const spell_data_t* a, const spell_data_t* b ) {
-    return a->level() != b->level() ? a->level() < b->level() : a->id() < b->id();
+  range::sort( out, [ player ]( const spell_data_t* a, const spell_data_t* b ) {
+    if ( a->level() != b->level() )
+      return a->level() < b->level();
+    unsigned ra = rank_number( player, a ), rb = rank_number( player, b );
+    if ( ra != rb )
+      return ra < rb;
+    return a->id() > b->id();
   } );
   return out;
 }
 
 // Highest rank of a class spell by name that the player knows (spell level <= player level), or
-// spell_data_t::not_found(). Ties on spell level resolve to the lowest spell id.
+// spell_data_t::not_found(). Ties on spell level go to the higher rank number, then the lowest spell id.
 inline const spell_data_t* find_rank_spell( const player_t* player, std::string_view name )
 {
   const spell_data_t* best = spell_data_t::not_found();
@@ -113,8 +121,8 @@ inline const spell_data_t* find_rank_spell( const player_t* player, std::string_
   for ( const spell_data_t* spell : rank_spells( player, name ) )
   {
     const spell_data_t* known = player->find_spell( spell->id() );
-    if ( known->ok() && ( !best->ok() || known->level() > best->level() ) )
-      best = known;
+    if ( known->ok() )
+      best = known;  // rank_spells() is ordered worst to best
   }
 
   return best;
