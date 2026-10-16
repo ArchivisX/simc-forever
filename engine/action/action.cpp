@@ -1561,17 +1561,28 @@ double action_t::calculate_direct_amount( action_state_t* state ) const
   {
     double delta_skill = ( state->target->level() - player->level() ) * 5.0;
 
+    // Forever 2026-10-16: classic glancing damage uses target defense vs the attacker's weapon skill
+    // (wowsims/classic NewAttackTable): 0.55-0.75 (avg 65%) at a 15 point gap, 0.80-0.90 at 10,
+    // 0.91-0.99 at 5 and below.
+    double max_base = 1.3, min_base = 1.4;
+    if ( sim->classic.glancing )
+    {
+      delta_skill = state->target->level() * 5.0 - player->composite_weapon_skill( weapon );
+      max_base = 1.2;
+      min_base = 1.3;
+    }
+
     if ( delta_skill < 0.0 )
       delta_skill = 0.0;
 
-    double max_glance = 1.3 - 0.03 * delta_skill;
+    double max_glance = max_base - 0.03 * delta_skill;
 
     if ( max_glance > 0.99 )
       max_glance = 0.99;
     else if ( max_glance < 0.2 )
       max_glance = 0.20;
 
-    double min_glance = 1.4 - 0.05 * delta_skill;
+    double min_glance = min_base - 0.05 * delta_skill;
 
     if ( min_glance > 0.91 )
       min_glance = 0.91;

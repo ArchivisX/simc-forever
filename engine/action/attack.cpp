@@ -97,10 +97,26 @@ double attack_t::miss_chance( double hit, player_t* t ) const
   // cache.miss() contains the target's miss chance (5.0 base in almost all cases)
   double miss = t->cache.miss();
 
-  // add 1% per level difference - think this works at level 60 for raid bosses but probably isn't
-  // correct for lower level stuff. Brief testing is beta makes it looks like lower level target doesn't reduce the miss
-  // chance
-  miss += ( std::max( t->level() - player->level(), 0 ) ) * 0.01;
+  if ( sim->classic.weapon_skill && t->is_enemy() && !player->is_enemy() )
+  {
+    // Forever 2026-10-16: classic weapon skill vs defense (https://github.com/magey/classic-warrior/wiki/Attack-table)
+    // +0.1% per point of defense over weapon skill, +0.2% once the gap exceeds 10 (8% vs a +3 boss
+    // at 300 skill, same as the per-level rule below). Lower level targets still don't reduce the
+    // miss chance (beta observation above), so the gap is floored at 0. No hit suppression (blue post).
+    double skill_gap = std::max( t->level() * 5.0 - player->composite_weapon_skill( weapon ), 0.0 );
+    miss += skill_gap * ( skill_gap > 10 ? 0.002 : 0.001 );
+  }
+  else
+  {
+    // add 1% per level difference - think this works at level 60 for raid bosses but probably isn't
+    // correct for lower level stuff. Brief testing is beta makes it looks like lower level target doesn't reduce the miss
+    // chance
+    miss += ( std::max( t->level() - player->level(), 0 ) ) * 0.01;
+  }
+
+  // Classic dual wield penalty: white swings miss 19% more often while two weapons are equipped
+  if ( sim->classic.dual_wield_miss && !special && player->dual_wield() )
+    miss += 0.19;
 
   // asymmetric hit penalty for npcs attacking higher-level players
   if ( !t->is_enemy() )
@@ -125,7 +141,10 @@ double attack_t::dodge_chance( double expertise, player_t* t ) const
   // Forever: add or subtract 0.5% per level difference
   // In Forever beta, dodge does look to decrease on lower level targets
   // https://www.bluetracker.gg/wow/topic/us-en/185675-bug-hit-tables/
-  dodge += ( t->level() - player->level() ) * 0.005;
+  if ( sim->classic.weapon_skill && t->is_enemy() && !player->is_enemy() )
+    dodge += ( t->level() * 5.0 - player->composite_weapon_skill( weapon ) ) * 0.001;  // same, per weapon skill point
+  else
+    dodge += ( t->level() - player->level() ) * 0.005;
 
   // subtract the player's expertise chance
   dodge -= expertise;
@@ -283,7 +302,8 @@ result_e attack_t::calculate_result( action_state_t* s ) const
   double dodge = may_dodge ? dodge_chance( composite_expertise(), s->target ) : 0;
   double parry =
     may_parry && player->position() == POSITION_FRONT ? parry_chance( composite_expertise(), s->target ) : 0;
-  double crit = may_crit ? std::max( s->composite_crit_chance() + s->target->cache.crit_avoidance(), 0.0 ) : 0;
+  double crit = may_crit ? std::max( s->composite_crit_chance() + s->target->cache.crit_avoidance() -
+                                      classic_crit_suppression( s->target ), 0.0 ) : 0;
 
   // Specials are 2-roll calculations, so only pass crit chance to
   // build_table for non-special attacks
@@ -324,6 +344,24 @@ result_e attack_t::calculate_result( action_state_t* s ) const
     sim->print_debug( "{} result for attack {} is {}.", *player, *this, result );
 
   return result;
+}
+
+// Forever 2026-10-16: classic melee crit suppression vs NPCs (https://github.com/magey/classic-warrior/wiki/Attack-table,
+// as implemented by wowsims/classic NewAttackTable). 0.2% per defense point over 5 * level (0.04% per point
+// under), plus 1.8% against +3 or higher. The 1.8% in-game only applies to crit from auras (talents, gear,
+// buffs), not base/agility crit; that split isn't tracked, so very low crit attackers are over-suppressed.
+double attack_t::classic_crit_suppression( const player_t* t ) const
+{
+  if ( !sim->classic.crit_suppression || !t->is_enemy() || player->is_enemy() )
+    return 0.0;
+
+  double defense_gap = ( t->level() - player->level() ) * 5.0;
+  double suppression = defense_gap * ( defense_gap > 0 ? 0.002 : 0.0004 );
+
+  if ( t->level() - player->level() >= 3 )
+    suppression += 0.018;
+
+  return suppression;
 }
 
 double attack_t::recharge_multiplier( const cooldown_t& cd ) const
@@ -433,6 +471,12 @@ double melee_attack_t::parry_chance( double expertise, player_t* t ) const
 double melee_attack_t::glance_chance( int delta_level ) const
 {
   double glance = 0;
+
+  // Forever 2026-10-16: classic glancing blows (https://github.com/magey/classic-warrior/wiki/Attack-table):
+  // 10% + 2% per point of target defense over the attacker's maximum weapon skill (5 * level), i.e.
+  // 10/20/30/40% against +0/+1/+2/+3. Glancing damage is in action_t::calculate_direct_amount.
+  if ( sim->classic.glancing && !player->is_enemy() )
+    return std::max( 0.0, 0.10 + delta_level * 5.0 * 0.02 );
 
   // TODO FOREVER - Needs research
   // TODO-WOD: Glance chance increase per 4+ level delta?

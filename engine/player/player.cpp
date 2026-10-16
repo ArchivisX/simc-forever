@@ -7792,6 +7792,14 @@ double player_t::mana_regen_from_spirit() const
   return 0.25 * std::min( spirit, 50.0 ) + 0.125 * std::max( spirit - 50.0, 0.0 );
 }
 
+double player_t::composite_weapon_skill( const weapon_t* w ) const
+{
+  // Classic: maximum weapon skill is 5 * level. Racial and item weapon skill bonuses are not in the
+  // Forever client data as such; use the weapon_skill_bonus option or override in the class module.
+  ( void ) w;
+  return 5.0 * level() + classic.weapon_skill_bonus;
+}
+
 dot_t* player_t::find_dot( util::string_view name, player_t* source ) const
 {
   for ( dot_t* d : dot_list )
@@ -12307,6 +12315,7 @@ void player_t::create_options()
   add_option( opt_float( "gear_stamina", gear.attribute[ ATTR_STAMINA ] ) );
   add_option( opt_float( "gear_intellect", gear.attribute[ ATTR_INTELLECT ] ) );
   add_option( opt_float( "gear_spirit", gear.attribute[ ATTR_SPIRIT ] ) );
+  add_option( opt_float( "weapon_skill_bonus", classic.weapon_skill_bonus ) );
   add_option( opt_float( "gear_spell_power", gear.spell_power ) );
   add_option( opt_float( "gear_attack_power", gear.attack_power ) );
   add_option( opt_float( "gear_expertise_rating", gear.expertise_rating ) );

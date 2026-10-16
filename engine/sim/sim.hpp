@@ -186,6 +186,15 @@ struct sim_t : private sc_thread_t
   const spell_data_t* pvp_rules; // Hidden aura that contains the PvP crit damage reduction
   bool pvp_mode; // Enables PvP mode - reduces crit damage, adjusts PvP gear iLvl
   bool auto_attacks_always_land; /// Allow Auto Attacks (white attacks) to always hit the enemy
+
+  /// Forever: classic (patch 1.12 style) combat rules, individually toggleable. See FOREVER_FOUNDATION.md.
+  struct classic_rules_t
+  {
+    bool weapon_skill      = true;   // miss/dodge/glancing damage from target defense vs weapon skill
+    bool glancing          = true;   // white melee swings vs NPCs can glance (10% + 2% per defense over 5*level)
+    bool crit_suppression  = true;   // melee crit chance reduced vs higher level NPCs (4.8% vs +3)
+    bool dual_wield_miss   = true;   // +19% miss on white swings while dual wielding
+  } classic;
   bool log_spell_id; // Add spell data ids to log/debug output where available. (actions, buffs)
 
   // Actor tracking

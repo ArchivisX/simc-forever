@@ -421,6 +421,12 @@ struct player_t : public actor_t
   double auto_attack_base_modifier;
   double auto_attack_multiplier;
 
+  // Forever: classic combat state (2026-10-16). See FOREVER_FOUNDATION.md.
+  struct classic_t
+  {
+    double weapon_skill_bonus       = 0.0;  // user option "weapon_skill_bonus", added to 5 * level for every weapon
+  } classic;
+
   // Scale Factors
   std::unique_ptr<player_scaling_t> scaling;
 
@@ -879,6 +885,8 @@ public:
   virtual double composite_melee_crit_chance_multiplier() const
   { return 1.0; }
   virtual double composite_melee_expertise( const weapon_t* w = nullptr ) const;
+  /// Forever: classic weapon skill for the given weapon (nullptr = no weapon), default 5 * level + bonus.
+  virtual double composite_weapon_skill( const weapon_t* w = nullptr ) const;
   virtual double composite_spell_haste() const;
   virtual double composite_spell_cast_speed() const;
   virtual double composite_spell_power( school_e school ) const;

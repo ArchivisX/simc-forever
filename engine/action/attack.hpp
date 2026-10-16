@@ -38,6 +38,8 @@ struct attack_t : public action_t
   double composite_target_multiplier( player_t* ) const override;
   double composite_hit() const override;
   double composite_crit_chance() const override;
+  /// Forever: classic melee crit suppression against higher level NPCs, 0 when classic_crit_suppression=0
+  virtual double classic_crit_suppression( const player_t* target ) const;
   double composite_crit_chance_multiplier() const override;
   double composite_haste() const override;
   double recharge_multiplier( const cooldown_t& cd ) const override;
