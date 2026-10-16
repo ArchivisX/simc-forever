@@ -43,6 +43,8 @@ Scope: **Feral (Cat) and Balance damage**. Bear tanking and Restoration healing 
 - Moonkin Form (31 pt) with the Moonkin Aura: self +3% spell crit.
 - Eclipse: Wrath gives 2 charges (max 4); each Starfire uses one and loses the talent's effect #2 from its cast time.
 - Nature's Grace: a non-periodic spell crit gives +10% cast speed and −10% GCD for 3 s.
+  - Spell casts don't read haste in the engine right now (see shared change 7), so Balance spells apply
+    `composite_haste()` to their cast time themselves. Eclipse is a flat cast time modifier, hasted with the cast.
 - Talents through passive parsing: Improved Wrath/Moonfire/Starfire, Moonglow, Moonfury, Vengeance, Nature's Splendor, Nature's Majesty.
 - Nature's Reach hit (aura 54/55) is applied in the class; see the shared changes below.
 - Default APL:
@@ -55,7 +57,7 @@ Scope: **Feral (Cat) and Balance damage**. Bear tanking and Restoration healing 
 | Profile | DPS | Top abilities (damage %) | Resource |
 |---|---|---|---|
 | druid-60-feral | 272 | Rip 35, Shred 35, melee 27, Claw 3, FB 1 (Rip refreshes before 5 CP + >6 s comes up) | Energy: waiting ~42% (cat norm at 1.0 s GCD), cap 0.1%; mana not OOM (Shifting Power is mana-limited) |
-| druid-60-balance | 233 | Starfire 54, Moonfire 23, Insect Swarm 14, Wrath 10 | Mana: no waiting, Innervate once, Clearcasting ~42 procs |
+| druid-60-balance | 235 | Starfire 54, Moonfire 23, Insect Swarm 14, Wrath 10 | Mana: no waiting, Innervate once, Clearcasting ~42 procs |
 | druid-25-feral | 68 | melee 39, Shred 26, Rip 22, Rake 10, Claw 2 | Energy, as above |
 
 Sanity vs warrior, Arcanite Reaper only, no other gear, no talents:
@@ -104,3 +106,10 @@ The Cat's edge comes from Cat AP (+120 + Agility), Rip, and the client Omen of C
 4. **Trait hash write-back** for classic class trees (`Talents: CAAAA…` in the report) so simc-generated profiles round-trip `talents=`.
 5. **Raid auras** (Leader of the Pack, Moonkin Aura) as sim-level buffs/overrides, like `override.mark_of_the_wild`.
 6. A shared **on-next-swing queue** (warrior `heroic_strike_queue_t`) before Bear Maul.
+7. **Spell haste no longer shortens casts.** `spell_base_t::execute_time_pct_multiplier()` (which returned
+   `action_t::execute_time_pct_multiplier() * composite_haste()`) was deleted with Chilled Clarity in b617b5ff0f
+   (declaration removed in 9af3236a77). Restore it in `engine/action/spell.cpp` / `spell_base.hpp` without the
+   Chilled Clarity part, then drop `balance_spell_t::execute_time_pct_multiplier()` here.
+8. **Sim-level Mark of the Wild** (`sim.cpp` `auras.mark_of_the_wild`, `player_t::parse_raid_buffs`) is rank 1 (1126),
+   whose only effect is aura 674 armor, so `override.mark_of_the_wild` gives nothing in Forever. It should use the
+   best rank for the actor's level; a druid's own `mark_of_the_wild` must then not stack with it.
