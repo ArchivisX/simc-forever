@@ -3258,6 +3258,11 @@ void player_t::init_talents()
         continue;
 
       auto effect_id = spell->effectN( eff_idx ).id();
+      // Sparse effect lists: the client data can drop an effect from the middle of a spell while the trait
+      // still has a curve for it (Forever 70425 Heightened Senses 30894 effect #1)
+      if ( effect_id == 0 )
+        continue;
+
       // Don't adjust already overridden effects, as those are defined by player options from the
       // command line (i.e., using override.spell_data or override.player.spell_data options).
       if ( dbc_override_->is_overridden_effect( *dbc, effect_id, "base_value" ) )
@@ -15214,7 +15219,9 @@ bool player_t::register_passive_effect( const spelleffect_data_t& modifying_eff,
             reporting_parse_effect[ spell->id() ][ eff->index() + 1 ].push_back( &modifying_eff );
         }
 
-        dbc_override_->register_effect( *dbc, id, "base_value", now.value() );
+        // data_val is the level scaled value, while the override replaces the unscaled base value that
+        // spelleffect_data_t::average() scales again (classic Real Points Per Level), so take the level part out
+        dbc_override_->register_effect( *dbc, id, "base_value", now.value() - ( data_val - eff->base_value() ) );
         success = true;
 
         // re-register if necessary
