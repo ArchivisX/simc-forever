@@ -241,6 +241,7 @@ struct mage_t final : public player_t
 
   action_t* ignite = nullptr;
   cooldown_t* arcane_concentration_icd = nullptr;
+  event_t* flamestrike_area = nullptr;  // the mage's one active Flamestrike ground effect
 
   target_specific_t<mage_td_t> target_data;
 
@@ -269,6 +270,7 @@ struct mage_t final : public player_t
   void init_procs() override;
   void init_action_list() override;
   void invalidate_cache( cache_e ) override;
+  void reset() override;
   std::unique_ptr<expr_t> create_expression( std::string_view name ) override;
   void copy_from( player_t* source ) override;
 
@@ -600,13 +602,11 @@ struct arcane_missiles_t : public mage_spell_t
     hasted_ticks = false;
     triggers_arcane_concentration = false;  // the missiles proc it
 
+    // Tick time and channel duration come from the periodic trigger effect #1
     if ( data().ok() )
     {
       tick_action = new arcane_missile_tick_t( p, max_rank( p, arcane_missiles_ranks ).tick_id );
       add_child( tick_action );
-      const auto& periodic = data().effectN( 1 );
-      base_tick_time = periodic.period() > 0_ms ? periodic.period() : 1_s;
-      dot_duration   = data().duration();
     }
   }
 
@@ -735,8 +735,6 @@ struct evocation_t : public mage_spell_t
     channeled    = true;
     hasted_ticks = false;
     target       = p;
-    base_tick_time = 1_s;
-    dot_duration   = data().duration();
     triggers_arcane_concentration = false;
   }
 
@@ -847,23 +845,46 @@ struct flamestrike_tick_t : public mage_spell_t
   }
 };
 
-// Flamestrike: direct AoE plus a 4 x 2 s ground effect from the rank's tick spell (one per mage)
+// Flamestrike: direct AoE plus a ground effect that pulses the rank's tick spell every effect #3 period
+// (2 s) for the spell's duration. Only one Flamestrike area per mage: a new cast replaces the old one.
 struct flamestrike_t : public mage_spell_t
 {
+  action_t* flamestrike_tick = nullptr;
+
   flamestrike_t( mage_t* p, std::string_view options_str ) :
     mage_spell_t( "flamestrike", p, p->find_spell( max_rank( p, flamestrike_ranks ).spell_id ) )
   {
     parse_options( options_str );
     aoe = -1;
+    // One ground area, not a DoT on every target hit by the direct part
+    dot_duration = 0_ms;
 
     if ( data().ok() )
     {
-      tick_action = new flamestrike_tick_t( p, max_rank( p, flamestrike_ranks ).tick_id );
-      add_child( tick_action );
-      base_tick_time = 2_s;
-      dot_duration   = data().duration();
-      hasted_ticks   = false;
+      flamestrike_tick = new flamestrike_tick_t( p, max_rank( p, flamestrike_ranks ).tick_id );
+      add_child( flamestrike_tick );
     }
+  }
+
+  void execute() override
+  {
+    mage_spell_t::execute();
+
+    if ( !flamestrike_tick )
+      return;
+
+    event_t::cancel( p()->flamestrike_area );
+    make_event<ground_aoe_event_t>( *sim, p(), ground_aoe_params_t()
+      .target( target )
+      .pulse_time( data().effectN( 3 ).period() )
+      .duration( data().duration() )
+      .action( flamestrike_tick )
+      .state_callback( [ p = p() ]( ground_aoe_params_t::state_type type, ground_aoe_event_t* e ) {
+        if ( type == ground_aoe_params_t::EVENT_CREATED )
+          p->flamestrike_area = e;
+        else if ( type == ground_aoe_params_t::EVENT_DESTRUCTED && p->flamestrike_area == e )
+          p->flamestrike_area = nullptr;
+      } ) );
   }
 };
 
@@ -895,8 +916,6 @@ struct ignite_t : public residual_action::residual_periodic_action_t<mage_spell_
   ignite_t( mage_t* p ) : residual_action_t( "ignite", p, p->spell.ignite )
   {
     school         = SCHOOL_FIRE;
-    base_tick_time = 2_s;
-    dot_duration   = 4_s;
     hasted_ticks   = false;
     tick_may_crit  = false;
     may_miss       = false;
@@ -1067,16 +1086,12 @@ struct blizzard_t : public mage_spell_t
     may_crit     = false;
     hasted_ticks = false;
     triggers_arcane_concentration = false;
-    // The channel's own dummy effect has a stray coefficient; damage is only the tick spell
-    base_dd_min = base_dd_max = 0;
-    spell_power_mod.direct    = 0;
 
+    // Damage is only the tick spell; the 1 s tick time and 8 s channel come from the periodic dummy effect #3
     if ( data().ok() )
     {
       tick_action = new blizzard_tick_t( p, max_rank( p, blizzard_ranks ).tick_id );
       add_child( tick_action );
-      base_tick_time = 1_s;
-      dot_duration   = data().duration();
     }
   }
 };
@@ -1386,6 +1401,13 @@ void mage_t::init_procs()
   proc.heating_up       = get_proc( "heating_up" );
 }
 
+void mage_t::reset()
+{
+  player_t::reset();
+
+  flamestrike_area = nullptr;
+}
+
 void mage_t::invalidate_cache( cache_e c )
 {
   player_t::invalidate_cache( c );
@@ -1463,8 +1485,8 @@ bool mage_t::frozen_for_action( player_t* t ) const
   return target_is_frozen( t ) || buff.fingers_of_frost->check();
 }
 
-// Fire Power: own Fire effects on the target. ESTIMATE (V4): Ignite, the Fireball, Pyroblast and Flamestrike
-// DoTs and Fire Vulnerability (once, regardless of stacks) count.
+// Fire Power: own Fire effects on the target. ESTIMATE (V4): Ignite, the Fireball and Pyroblast DoTs, an
+// active Flamestrike area and Fire Vulnerability (once, regardless of stacks) count.
 int mage_t::fire_effects_on( player_t* t ) const
 {
   const mage_td_t* td = get_target_data( t );
@@ -1475,7 +1497,10 @@ int mage_t::fire_effects_on( player_t* t ) const
   if ( td->debuff.fire_vulnerability->check() )
     n++;
 
-  for ( auto name : { "fireball", "pyroblast", "flamestrike" } )
+  if ( flamestrike_area )
+    n++;
+
+  for ( auto name : { "fireball", "pyroblast" } )
     if ( dot_t* d = t->find_dot( name, const_cast<mage_t*>( this ) ); d && d->is_ticking() )
       n++;
 
