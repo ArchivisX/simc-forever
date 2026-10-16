@@ -188,13 +188,34 @@ struct mana_potion_t : public action_t
   int trigger;
   int min;
   int max;
+  std::string type_str;
 
-  mana_potion_t( player_t* p, util::string_view options_str )
-    : action_t( ACTION_USE, "mana_potion", p ), trigger( 0 ), min( 0 ), max( 0 )
+  // Forever: classic mana potions and runes restore mana from client spell data (Energize effect) and
+  // share a category cooldown (potions: "potion", runes: "rune"; 60 s in Forever 1.60.1 data) instead
+  // of being once per fight. type=auto picks the best potion the player can use. 2026-10-16
+  struct entry_t
+  {
+    std::string_view name;
+    unsigned spell_id;
+  };
+
+  static constexpr std::array<entry_t, 6> potions { {
+    { "minor", 437 }, { "lesser", 438 }, { "mana", 2023 },
+    { "greater", 11903 }, { "superior", 17530 }, { "major", 17531 } } };
+  static constexpr std::array<entry_t, 2> runes { { { "demonic", 16666 }, { "dark", 27869 } } };
+
+  bool rune;
+  const spell_data_t* source_spell;
+
+  mana_potion_t( player_t* p, util::string_view options_str, bool is_rune = false )
+    : action_t( ACTION_USE, is_rune ? "dark_rune" : "mana_potion", p ),
+      trigger( 0 ), min( 0 ), max( 0 ), type_str( is_rune ? "dark" : "auto" ), rune( is_rune ),
+      source_spell( spell_data_t::nil() )
   {
     add_option( opt_int( "min", min ) );
     add_option( opt_int( "max", max ) );
     add_option( opt_int( "trigger", trigger ) );
+    add_option( opt_string( "type", type_str ) );
     parse_options( options_str );
 
     if ( max <= 0 ) max = trigger;
@@ -203,22 +224,27 @@ struct mana_potion_t : public action_t
     if ( max < 0 ) max = 0;
     if ( min > max ) std::swap( min, max );
 
+    const spell_data_t* spell = spell_data_t::not_found();
+    for ( const auto& e : rune ? util::span<const entry_t>( runes ) : util::span<const entry_t>( potions ) )
+    {
+      const spell_data_t* s = dbc::find_spell( player, e.spell_id );
+      if ( !s->ok() || s->level() > as<unsigned>( player->level() ) )
+        continue;
+
+      if ( util::str_compare_ci( type_str, e.name ) || ( type_str == "auto" && !rune ) )
+        spell = s;
+    }
+
+    if ( max <= 0 && !spell->ok() )
+      throw std::invalid_argument( fmt::format( "Unable to find {} type '{}'", name(), type_str ) );
+
     if ( max <= 0 )
     {
-      struct potion_entry_t { int level, value; };
-      potion_entry_t entries[] = { { 0, 1800 },
-                                   { 68, 2400 },
-                                   { 80, 4300 },
-                                   { 85, 10000 },
-                                   { 86, 30001 },};
-      for ( const auto& entry : entries )
-      {
-        min = max = entry.value;
-        if ( player->level() > entry.level )
-        {
-          break;
-        }
-      }
+      const auto& energize = spell->effectN( 1 );
+      min = as<int>( energize.min( player ) );
+      max = as<int>( energize.max( player ) );
+      source_spell     = spell;
+      s_data_reporting = spell;
     }
 
     assert( max > 0 );
@@ -228,19 +254,35 @@ struct mana_potion_t : public action_t
 
     trigger_gcd = timespan_t::zero();
     harmful = false;
+
+    cooldown = player->get_cooldown( rune ? "rune" : "potion" );
+    if ( source_spell->ok() )
+      cooldown->duration = std::max( source_spell->cooldown(), source_spell->category_cooldown() );
   }
 
   void execute() override
   {
-    sim->print_log( "{} uses Mana potion", player->name() );
+    sim->print_log( "{} uses {}", player->name(), name() );
     double gain_mana = rng().range( min, max );
     player->resource_gain( RESOURCE_MANA, gain_mana, gain );
-    player->potion_used = true;
+
+    // Dark / Demonic Rune: second effect damages the user
+    if ( rune && source_spell->effectN( 2 ).ok() )
+    {
+      const auto& self_damage = source_spell->effectN( 2 );
+      player->resource_loss( RESOURCE_HEALTH, rng().range( self_damage.min( player ), self_damage.max( player ) ) );
+    }
+
+    // Legacy behaviour (no client spell, explicit min/max): once per fight
+    if ( !source_spell->ok() )
+      player->potion_used = true;
+
+    update_ready();
   }
 
   bool ready() override
   {
-    if ( player->potion_used )
+    if ( !source_spell->ok() && player->potion_used )
       return false;
 
     if ( ( player->resources.max[ RESOURCE_MANA ] - player->resources.current[ RESOURCE_MANA ] ) < trigger )
@@ -966,6 +1008,8 @@ action_t* create_action( player_t* p, std::string_view name, std::string_view op
     return new health_stone_t( p, options_str );
   if ( name == "mana_potion" )
     return new mana_potion_t( p, options_str );
+  if ( name == "dark_rune" )
+    return new mana_potion_t( p, options_str, true );
 
   // Misc consumables
   if ( name == "oralius_whispering_crystal" )
