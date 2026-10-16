@@ -27,13 +27,18 @@ All values (damage, cost, cast time, coefficients, per-level scaling, talent per
 
 Options: `mage.cone_of_cold_in_range=1`, `mage.target_frozen=0`, `mage.target_freezable=0`.
 
+Default APLs (profilesets on the sample profiles): Arcane builds Arcane Blast to `variable.ab_stacks` (2; beats 3 by
+~8% with the sample gear), Fire and Frost spend Missile Barrage procs on Arcane Missiles (+10% / +16%), Frost holds
+Cone of Cold for max Winter's Chill (casting it on cooldown is -4%).
+
 ## ESTIMATES (module-side guesses, search the source for ESTIMATE)
 
 1. Base spell/melee crit 0.2% (vanilla mage); base stats L2-60 are the foundation's ESTIMATE rows.
 2. Ice Lance spell power coefficient 0.143 (data has 0 on every rank; TBC value). Hook V7.
-3. Fire Power counts Ignite, the Fireball / Pyroblast / Flamestrike DoTs and Fire Vulnerability (once). Hook V4.
-4. Ignite ticks are 40% of the crit amount and are not multiplied again (no target-debuff double dip); only
-   pure fire direct crits ignite.
+3. Fire Power counts Ignite, the Fireball / Pyroblast DoTs, an active Flamestrike area (one ground effect per
+   mage, `ground_aoe_event_t`) and Fire Vulnerability (once). Hook V4.
+4. Ignite ticks are 40% of the crit amount and are not multiplied again (no target-debuff double dip); direct
+   crits of any spell with a Fire school ignite (Frostfire Bolt included, unlike Fire Power).
 5. Arcane Concentration: no low-rank proc penalty, 1 s ICD from data, each missile can proc. Hook V8.
 6. Missile Barrage needs the cast to hit; Arcane Missiles hits do not proc it (not in the 70425 text).
 7. Fingers of Frost: a charge is used by every damage spell cast; while charges remain all spells count the
@@ -63,8 +68,9 @@ Options: `mage.cone_of_cold_in_range=1`, `mage.target_frozen=0`, `mage.target_fr
 
 1. `optimal_raid=1` adds the engine's (retail style) `arcane_intellect` raid buff on top of the mage's own Arcane
    Intellect (+3 Int at 60). Make the raid buff the classic flat value, or skip it when a mage provides it.
-2. Parse aura 174 (spell damage from % of a stat) and aura 270 (damage taken from caster, by school) in
-   `parse_effects`; the mage handles both class-locally (Arcane Blast, Fire Vulnerability).
+2. Parse aura 174 (spell damage from % of a stat) in `parse_player_effects_t` (composite_spell_power); the mage
+   handles it class-locally for Arcane Blast. (Aura 270 is already handled there: Fire Vulnerability uses
+   `parse_target_effects` on `mage_t`.)
 3. Property 16 (hit) talents are not passive-parsed; every class has to `parse_effects( talent, PARSE_PASSIVE )`
    per action. A player-level passive for spell hit by school would remove the boilerplate.
 4. `class_talents=` input shows `Talents: CAAAA...` in the report: the generated trait hash looks empty for
