@@ -500,10 +500,10 @@ struct rend_t : public warrior_attack_t
 struct next_swing_queue_t : public action_t
 {
   action_t* ability;
-  buff_t* warrior_t::buffs_t::*queued;
+  buff_t* queued;
 
   next_swing_queue_t( warrior_t* p, util::string_view name, util::string_view options_str, action_t* ability,
-                      buff_t* warrior_t::buffs_t::*queued )
+                      buff_t* queued )
     : action_t( ACTION_OTHER, name, p ), ability( ability ), queued( queued )
   {
     parse_options( options_str );
@@ -535,7 +535,7 @@ struct next_swing_queue_t : public action_t
 
   void execute() override
   {
-    ( p()->buff.*queued )->trigger();
+    queued->trigger();
   }
 };
 
@@ -891,9 +891,9 @@ action_t* warrior_t::create_action( util::string_view name, util::string_view op
 
   if ( name == "rend" ) return new rend_t( this, options_str );
   if ( name == "heroic_strike" )
-    return new next_swing_queue_t( this, "heroic_strike_queue", options_str, heroic_strike, &buffs_t::heroic_strike_queued );
+    return new next_swing_queue_t( this, "heroic_strike_queue", options_str, heroic_strike, buff.heroic_strike_queued );
   if ( name == "cleave" )
-    return new next_swing_queue_t( this, "cleave_queue", options_str, cleave, &buffs_t::cleave_queued );
+    return new next_swing_queue_t( this, "cleave_queue", options_str, cleave, buff.cleave_queued );
   if ( name == "whirlwind" ) return new whirlwind_t( this, options_str );
   if ( name == "sunder_armor" ) return new sunder_armor_t( this, options_str );
 
