@@ -37,9 +37,12 @@ void warlock( player_t* p )
 
   precombat->add_action( "summon_imp" );
 
-  default_->add_action( "immolate,if=!ticking|remains<2" );
+  default_->add_action( "life_tap,if=mana.pct<15&health.pct>40" );
   default_->add_action( "corruption,if=!ticking|remains<2" );
+  default_->add_action( "bane_of_agony,if=!ticking" );
+  default_->add_action( "immolate,if=!ticking|remains<2" );
   default_->add_action( "shadow_bolt" );
+  default_->add_action( "life_tap" );
 }
 //warlock_apl_end
 }  // namespace warlock_apl
