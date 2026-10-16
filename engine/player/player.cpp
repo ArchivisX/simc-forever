@@ -4482,10 +4482,11 @@ double player_t::composite_melee_attack_power() const
   ap += current.attack_power_per_agility * cache.agility();
   ap += classic.raid_attack_power;
 
+  // rounded down per stat (Mental Dexterity, measured on the L20 shaman export)
   for ( auto attr : { ATTR_STRENGTH, ATTR_AGILITY, ATTR_STAMINA, ATTR_INTELLECT, ATTR_SPIRIT } )
   {
     if ( classic.attack_power_per_attribute[ attr ] )
-      ap += classic.attack_power_per_attribute[ attr ] * cache.get_attribute( attr );
+      ap += std::floor( classic.attack_power_per_attribute[ attr ] * cache.get_attribute( attr ) );
   }
 
   return ap;
@@ -4503,7 +4504,7 @@ double player_t::composite_ranged_attack_power() const
   for ( auto attr : { ATTR_STRENGTH, ATTR_AGILITY, ATTR_STAMINA, ATTR_INTELLECT, ATTR_SPIRIT } )
   {
     if ( classic.ranged_attack_power_per_attribute[ attr ] )
-      ap += classic.ranged_attack_power_per_attribute[ attr ] * cache.get_attribute( attr );
+      ap += std::floor( classic.ranged_attack_power_per_attribute[ attr ] * cache.get_attribute( attr ) );
   }
 
   return ap;
