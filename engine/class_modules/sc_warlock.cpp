@@ -393,7 +393,11 @@ namespace pets {
         }
 
         // TODO - this is at level 7, probably need a table for this
-        return recent_cast() ? 1.65 : 2.73;
+        // 2026-10-16: above level 10 scale it with the imp's max mana (124 at level 10, see init_base_stats)
+        // so higher level imps don't run dry after a few casts. Levels <= 10 are unchanged. Unverified.
+        double level10_mana = std::floor( 29 + 9.5 * 10 );
+        double scale        = std::max( 1.0, resources.max[ RESOURCE_MANA ] / level10_mana );
+        return ( recent_cast() ? 1.65 : 2.73 ) * scale;
       }
 
       void init_base_stats() override
