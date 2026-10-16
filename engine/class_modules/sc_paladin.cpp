@@ -314,8 +314,6 @@ public:
       flat_crit_bonus += crit_pct - 1.0;
       this->crit_chance_multiplier /= crit_pct;
     }
-
-    is_holy = dbc::is_school( this->school, SCHOOL_HOLY );
   }
 
   paladin_t* p()
@@ -455,12 +453,6 @@ struct seal_of_righteousness_proc_t : public paladin_spell_t
 
     base_dd_min = base_dd_max = value * ( two_hand ? sor_2h_factor : sor_1h_factor ) * speed / 100.0 * mult;
     spell_power_mod.direct    = ( two_hand ? sor_2h_sp_coef : sor_1h_sp_coef ) * mult;
-  }
-
-  void init() override
-  {
-    paladin_spell_t::init();
-    is_holy = true;
   }
 };
 
