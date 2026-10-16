@@ -233,8 +233,7 @@ struct druid_t final : public parse_player_effects_t
 
   struct gains_t
   {
-    gain_t* blood_frenzy   = nullptr;
-    gain_t* shifting_power = nullptr;
+    gain_t* blood_frenzy = nullptr;
   } gain;
 
   struct procs_t
@@ -462,9 +461,10 @@ struct cat_attack_t : public druid_attack_t
   {
     druid_attack_t::impact( s );
 
-    // Blood Frenzy: non-periodic crits from combo point builders have a chance to award an extra combo point
+    // Blood Frenzy: non-periodic crits from combo point builders have a chance (effect #1) to award an extra combo
+    // point; effect #2 is the bear rage chance (trigger 16959)
     if ( combo_point_builder && s->result == RESULT_CRIT && p()->talent.blood_frenzy.ok() &&
-         rng().roll( p()->talent.blood_frenzy->effectN( 2 ).percent() ) )
+         rng().roll( p()->talent.blood_frenzy->effectN( 1 ).percent() ) )
     {
       p()->resource_gain( RESOURCE_COMBO_POINT, 1, p()->gain.blood_frenzy, this );
       p()->proc.blood_frenzy->occur();
@@ -649,8 +649,8 @@ struct ferocious_bite_t : public cat_finisher_t
   }
 };
 
-// Shifting Power (16 point Feral milestone): Cat Form only, converts 55% of base mana into 40 energy. Can't be
-// used at full energy (beta notes 10-08).
+// Shifting Power (16 point Feral milestone): Cat Form only, converts 55% of base mana into energy (the spell's
+// Energize effect). Can't be used at full energy (beta notes 10-08).
 struct shifting_power_t : public druid_spell_t
 {
   shifting_power_t( druid_t* p, std::string_view options_str )
@@ -663,7 +663,6 @@ struct shifting_power_t : public druid_spell_t
     may_miss          = false;
     target            = p;
     requires_cat_form = true;
-    energize_type     = action_energize::NONE;
   }
 
   bool ready() override
@@ -672,13 +671,6 @@ struct shifting_power_t : public druid_spell_t
       return false;
 
     return druid_spell_t::ready();
-  }
-
-  void execute() override
-  {
-    druid_spell_t::execute();
-
-    p()->resource_gain( RESOURCE_ENERGY, data().effectN( 1 ).base_value(), p()->gain.shifting_power, this );
   }
 };
 
@@ -1169,8 +1161,7 @@ void druid_t::init_gains()
 {
   parse_player_effects_t::init_gains();
 
-  gain.blood_frenzy   = get_gain( "blood_frenzy" );
-  gain.shifting_power = get_gain( "shifting_power" );
+  gain.blood_frenzy = get_gain( "blood_frenzy" );
 }
 
 void druid_t::init_procs()
