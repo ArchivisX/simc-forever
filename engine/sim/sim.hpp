@@ -195,6 +195,7 @@ struct sim_t : private sc_thread_t
     bool crit_suppression  = true;   // melee crit chance reduced vs higher level NPCs (4.8% vs +3)
     bool dual_wield_miss   = true;   // +19% miss on white swings while dual wielding
     bool partial_resists   = true;   // average level-based partial resists for non-binary spells vs NPCs
+    bool vanilla_spirit_regen = false; // per-class 1.12 spirit regen instead of the measured Forever formula
   } classic;
   bool log_spell_id; // Add spell data ids to log/debug output where available. (actions, buffs)
 

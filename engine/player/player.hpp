@@ -421,9 +421,12 @@ struct player_t : public actor_t
   double auto_attack_base_modifier;
   double auto_attack_multiplier;
 
-  // Forever: classic combat state (2026-10-16). See FOREVER_FOUNDATION.md.
+  // Forever: classic mana regeneration and weapon skill (2026-10-16). See FOREVER_FOUNDATION.md.
   struct classic_t
   {
+    double mana_regen_while_casting = 0.0;  // fraction of spirit regen kept inside the five second rule (aura 134 passives)
+    double mp5                      = 0.0;  // flat mana per 5 sec, ignores the five second rule (item mod 43, aura 85)
+    double mp5_bonus                = 0.0;  // user option "mp5", added on top
     double weapon_skill_bonus       = 0.0;  // user option "weapon_skill_bonus", added to 5 * level for every weapon
   } classic;
 
@@ -686,6 +689,8 @@ public:
   bool in_gcd() const;
   bool recent_cast() const;
   double mana_regen_from_spirit() const;
+  double mana_regen_while_casting() const;
+  double mana_regen_from_mp5() const;
   bool dual_wield() const
   { return equipped_weapons.at( SLOT_MAIN_HAND ).type != WEAPON_NONE && equipped_weapons.at( SLOT_OFF_HAND ).type != WEAPON_NONE; }
   bool has_shield_equipped() const;
@@ -887,6 +892,12 @@ public:
   virtual double composite_melee_expertise( const weapon_t* w = nullptr ) const;
   /// Forever: classic weapon skill for the given weapon (nullptr = no weapon), default 5 * level + bonus.
   virtual double composite_weapon_skill( const weapon_t* w = nullptr ) const;
+  /// Forever: multiplier on spirit based mana regen (Innervate style effects), default 1.0
+  virtual double composite_spirit_regen_multiplier() const;
+  /// Forever: fraction of spirit regen that continues inside the five second rule (Meditation, Mage Armor, ...)
+  virtual double composite_mana_regen_while_casting() const;
+  /// Forever: flat mana per 5 seconds, not affected by the five second rule
+  virtual double composite_mp5() const;
   virtual double composite_spell_haste() const;
   virtual double composite_spell_cast_speed() const;
   virtual double composite_spell_power( school_e school ) const;

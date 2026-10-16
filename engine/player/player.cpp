@@ -1604,6 +1604,10 @@ void player_t::init_base_stats()
 
     base.health_per_stamina = dbc->health_per_stamina( level() );
 
+    // Forever: classic mana regeneration passives (talents like Meditation, mp5 runes)
+    classic.mana_regen_while_casting = get_passive_player_value( 0.0, "mana_regen_while_casting" );
+    classic.mp5                      = get_passive_player_value( 0.0, "mp5" );
+
     // Forever: no base line hit or expertise
     base.hit       = 0.0;
     base.expertise = 0.0;
@@ -4171,15 +4175,25 @@ void player_t::min_threshold_trigger()
 
     // Special handling for the spirit 5-second rule. If the player is within the 5-seconds of 0 regen, we
     // need to schedule based on the end of that window
+    double diff = threshold - resources.current[ pres ];
     if ( pres == RESOURCE_MANA && is_player() && recent_cast() )
     {
+      // rps is the reduced in-window rate; the window may already cover the deficit
       regen_delay = last_cast + 5_s - sim->current_time();
-      rps         = mana_regen_from_spirit();
+      double in_window = rps * regen_delay.total_seconds();
+      if ( rps > 0 && in_window >= diff )
+      {
+        regen_delay = 0_ms;
+      }
+      else
+      {
+        diff -= in_window;
+        rps = mana_regen_from_spirit() + mana_regen_from_mp5();
+      }
     }
 
     if ( rps > 0 )
     {
-      double diff       = threshold - resources.current[ pres ];
       time_to_threshold = regen_delay + timespan_t::from_seconds( diff / rps );
     }
   }
@@ -4353,10 +4367,12 @@ double player_t::resource_regen_per_second( resource_e r ) const
 
   if ( r == RESOURCE_MANA && is_player() )
   {
+    // Forever: inside the five second rule only the "while casting" fraction of spirit regen (and
+    // flat mp5) ticks. Outside, full spirit regen. mp5 is never interrupted.
     if ( recent_cast() )
-      return 0;
+      return mana_regen_while_casting() + mana_regen_from_mp5();
 
-    reg += mana_regen_from_spirit();
+    reg += mana_regen_from_spirit() + mana_regen_from_mp5();
   }
 
   if ( resources.hasted[ r ] )
@@ -7785,11 +7801,62 @@ bool player_t::recent_cast() const
 
 double player_t::mana_regen_from_spirit() const
 {
-  // TODO FOREVER - verify this across classes. This was observed on a level 19 shaman
   double spirit = cache.spirit();
+  double regen  = 0;
 
-  // first 50 spirit are more effective
-  return 0.25 * std::min( spirit, 50.0 ) + 0.125 * std::max( spirit - 50.0, 0.0 );
+  if ( !sim->classic.vanilla_spirit_regen )
+  {
+    // TODO FOREVER - verify this across classes. This was observed on a level 19 shaman
+    // 2026-10-16: also matches the addon exports of a level 10 warlock (32 spi -> 8.00/s), a level
+    // 11 warrior (23 spi -> 5.75/s) and a level 20 shaman (64 spi -> 14.25/s) in profiles/LowLevel.
+    // first 50 spirit are more effective
+    regen = 0.25 * std::min( spirit, 50.0 ) + 0.125 * std::max( spirit - 50.0, 0.0 );
+  }
+  else
+  {
+    // Original 1.12 per-class formulas, mana per 2 second tick (wowwiki "Spirit", vmangos
+    // Player::OCTRegenMPPerSpirit). Kept for theorycrafting (classic_vanilla_spirit_regen=1).
+    switch ( type )
+    {
+      case DRUID:
+      case HUNTER:
+      case PALADIN: regen = 15.0 + spirit / 5.0; break;
+      case MAGE:
+      case PRIEST:  regen = 13.0 + spirit / 4.0; break;
+      case SHAMAN:  regen = 17.0 + spirit / 5.0; break;
+      case WARLOCK: regen = 8.0 + spirit / 4.0; break;
+      default:      regen = 0; break;
+    }
+    regen /= 2.0;
+  }
+
+  return regen * composite_spirit_regen_multiplier();
+}
+
+double player_t::mana_regen_while_casting() const
+{
+  double fraction = std::clamp( composite_mana_regen_while_casting(), 0.0, 1.0 );
+  return fraction > 0 ? mana_regen_from_spirit() * fraction : 0.0;
+}
+
+double player_t::mana_regen_from_mp5() const
+{
+  return composite_mp5() / 5.0;
+}
+
+double player_t::composite_spirit_regen_multiplier() const
+{
+  return 1.0;
+}
+
+double player_t::composite_mana_regen_while_casting() const
+{
+  return classic.mana_regen_while_casting;
+}
+
+double player_t::composite_mp5() const
+{
+  return classic.mp5 + classic.mp5_bonus;
 }
 
 double player_t::composite_weapon_skill( const weapon_t* w ) const
@@ -12315,6 +12382,7 @@ void player_t::create_options()
   add_option( opt_float( "gear_stamina", gear.attribute[ ATTR_STAMINA ] ) );
   add_option( opt_float( "gear_intellect", gear.attribute[ ATTR_INTELLECT ] ) );
   add_option( opt_float( "gear_spirit", gear.attribute[ ATTR_SPIRIT ] ) );
+  add_option( opt_float( "mp5", classic.mp5_bonus ) );
   add_option( opt_float( "weapon_skill_bonus", classic.weapon_skill_bonus ) );
   add_option( opt_float( "gear_spell_power", gear.spell_power ) );
   add_option( opt_float( "gear_attack_power", gear.attack_power ) );
@@ -13948,7 +14016,9 @@ static constexpr std::pair<int, std::string_view> field_type_map[] = {
   { A_MOD_DAMAGE_PERCENT_DONE,                "damage_multiplier"                },  // 79
   { A_MOD_PERCENT_STAT,                       "base_attribute_multiplier"        },  // 80
   { A_MOD_RESISTANCE_PCT,                     "armor_multiplier"                 },  // 101
+  { A_RESTORE_POWER,                          "mp5"                              },  // 85
   { A_MOD_POWER_REGEN_PERCENT,                "resource_regen"                   },  // 110
+  { A_MOD_MANA_REGEN_INTERRUPT,               "mana_regen_while_casting"         },  // 134
   { A_MOD_HEALING_RECEIVED_PCT,               "healing_received_multiplier"      },  // 118
   { A_INCREASE_RESOURCE_PCT,                  "resource_multiplier"              },  // 119
   { A_MOD_SPEED_ALWAYS,                       "move_speed_modifier_-_stacking"   },  // 129
@@ -14343,6 +14413,17 @@ bool player_t::register_passive_effect( const spelleffect_data_t& modifying_eff,
       case A_MOD_VERSATILITY_PCT:  // 417
       case A_MOD_LEECH_PERCENT:  // 443
       case A_MOD_PARRY_FROM_CRIT_RATING:  // 463
+        flat_val = modifying_eff.average( this ) * 0.01;
+        break;
+      // Forever: classic mana regeneration auras, only mana is modelled (misc value is the power type)
+      case A_RESTORE_POWER:  // 85, mana per 5 seconds
+        if ( modifying_eff.misc_value1() != POWER_MANA )
+          return false;
+        misc_type = 0;
+        flat_val = modifying_eff.average( this );
+        break;
+      case A_MOD_MANA_REGEN_INTERRUPT:  // 134, % of spirit regen kept while casting
+        misc_type = 0;
         flat_val = modifying_eff.average( this ) * 0.01;
         break;
       case A_MOD_PERCENT_STAT:  // 80
