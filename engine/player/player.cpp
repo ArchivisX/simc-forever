@@ -4206,7 +4206,16 @@ void player_t::min_threshold_trigger()
       }
     }
 
-    if ( rps > 0 )
+    if ( rps > 0 && pres == RESOURCE_ENERGY && classic_energy_ticks() )
+    {
+      // Energy only arrives on 2 second ticks: wake up on the tick that crosses the threshold
+      double per_tick = rps * 2.0;
+      double needed   = diff - classic.energy_pending - rps * time_to_next_energy_tick().total_seconds();
+      int extra_ticks = needed > 0 ? static_cast<int>( std::ceil( needed / per_tick ) ) : 0;
+      // + 1ms so the wakeup lands after the regen event that pays out the tick at the same timestamp
+      time_to_threshold = std::max( time_to_next_energy_tick(), 0_ms ) + 2_s * extra_ticks + 1_ms;
+    }
+    else if ( rps > 0 )
     {
       time_to_threshold = regen_delay + timespan_t::from_seconds( diff / rps );
     }
@@ -5864,6 +5873,8 @@ void player_t::reset()
   sim->print_debug( "Resetting {}.", *this );
 
   last_cast = timespan_t::min();
+  classic.energy_pending    = 0.0;
+  classic.energy_tick_index = 0;
   gcd_ready = timespan_t::zero();
   off_gcd_ready = timespan_t::min();
   cast_while_casting_ready = timespan_t::min();
@@ -6659,6 +6670,22 @@ void player_t::regen( timespan_t periodicity )
     {
       double regen  = resource_regen_per_second( r );
       gain_t* gain = gains.resource_regen[ r ];
+
+      // Forever: classic energy is granted in 2 second server ticks. Accumulate the (possibly buffed)
+      // regen and pay it out when a tick boundary is crossed.
+      if ( r == RESOURCE_ENERGY && classic_energy_ticks() )
+      {
+        classic.energy_pending += regen * periodicity.total_seconds();
+        int tick_index = static_cast<int>( sim->current_time() / 2_s );
+        if ( tick_index > classic.energy_tick_index )
+        {
+          classic.energy_tick_index = tick_index;
+          if ( gain && classic.energy_pending > 0 )
+            resource_gain( r, classic.energy_pending, gain );
+          classic.energy_pending = 0;
+        }
+        continue;
+      }
 
       if ( gain && regen )
         resource_gain( r, regen * periodicity.total_seconds(), gain );
@@ -7856,6 +7883,16 @@ double player_t::mana_regen_while_casting() const
 double player_t::mana_regen_from_mp5() const
 {
   return composite_mp5() / 5.0;
+}
+
+bool player_t::classic_energy_ticks() const
+{
+  return sim->classic.energy_tick && resource_regeneration == regen_type::STATIC;
+}
+
+timespan_t player_t::time_to_next_energy_tick() const
+{
+  return 2_s * ( classic.energy_tick_index + 1 ) - sim->current_time();
 }
 
 double player_t::composite_spirit_regen_multiplier() const

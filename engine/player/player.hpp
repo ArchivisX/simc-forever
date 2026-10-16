@@ -428,6 +428,8 @@ struct player_t : public actor_t
     double mp5                      = 0.0;  // flat mana per 5 sec, ignores the five second rule (item mod 43, aura 85)
     double mp5_bonus                = 0.0;  // user option "mp5", added on top
     double weapon_skill_bonus       = 0.0;  // user option "weapon_skill_bonus", added to 5 * level for every weapon
+    double energy_pending           = 0.0;  // energy regenerated since the last 2 second energy tick
+    int    energy_tick_index        = 0;    // number of energy ticks granted this iteration
   } classic;
 
   // Scale Factors
@@ -691,6 +693,10 @@ public:
   double mana_regen_from_spirit() const;
   double mana_regen_while_casting() const;
   double mana_regen_from_mp5() const;
+  /// Forever: classic 2 second energy tick in use for this actor (sim option classic_energy_tick)
+  bool classic_energy_ticks() const;
+  /// Forever: time until the next 2 second energy tick
+  timespan_t time_to_next_energy_tick() const;
   bool dual_wield() const
   { return equipped_weapons.at( SLOT_MAIN_HAND ).type != WEAPON_NONE && equipped_weapons.at( SLOT_OFF_HAND ).type != WEAPON_NONE; }
   bool has_shield_equipped() const;
