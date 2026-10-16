@@ -14925,6 +14925,15 @@ bool player_t::register_passive_effect( const spelleffect_data_t& modifying_eff,
           break;
         // action_t modifiers, these don't modify spell data
         case P_CRIT:  // 7
+          // Forever: classic "Add Percent Modifier: Critical Chance" adds percentage points, the same as the flat
+          // modifier (Holy Power +5% is +5 points, not +5% of the crit chance)
+          if ( pct_val )
+          {
+            flat_val = pct_val * 100;
+            pct_val = 0.0;
+          }
+          SC_FALLTHROUGH;
+        case P_PENETRATION:  // 16, Forever: classic hit chance (Arcane Focus, Shadow Focus, Precision, ...)
         case P_CRIT_BONUS:  // 15
           flat_val *= 0.01;
           SC_FALLTHROUGH;

@@ -1647,7 +1647,8 @@ std::vector<player_effect_t>* parse_action_base_t::get_effect_vector( const spel
       case P_GCD:             str = "gcd";                    return &gcd_effects;
       case P_TICK_TIME:       str = "tick time";              return &tick_time_effects;
       case P_RESOURCE_COST_1: str = "cost percent";           return &cost_effects;
-      case P_CRIT:            str = "crit chance multiplier"; return &crit_chance_multiplier_effects;
+      // Forever: classic percent crit chance modifiers add percentage points, like the flat ones
+      case P_CRIT:            str = "crit chance";            return &crit_chance_effects;
       case P_CRIT_BONUS:      str = "crit bonus multiplier";  return &crit_bonus_effects;
       case P_COOLDOWN:        str = "cooldown";               return &recharge_multiplier_effects;
       default:                return nullptr;
