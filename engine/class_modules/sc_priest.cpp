@@ -371,11 +371,10 @@ public:
 
     // Inner Focus: next spell is free and, if it is not a periodic spell, gets +25% crit (Oct 1 2026 beta
     // notes: no longer boosts periodic crit). Consumed by the next affected spell.
-    bool has_direct = false;
-    for ( const auto& eff : this->data().effects() )
-      if ( eff.type() == E_SCHOOL_DAMAGE )
-        has_direct = true;
-    ab::parse_effects( p()->buff.inner_focus, CONSUME_BUFF, has_direct ? 0U : 0b10U );
+    if ( ab::has_direct_damage_effect( this->data() ) )
+      ab::parse_effects( p()->buff.inner_focus, CONSUME_BUFF );
+    else
+      ab::parse_effects( p()->buff.inner_focus, CONSUME_BUFF, effect_mask_t( true ).disable( 2 ) );
   }
 
   priest_t* p()
@@ -402,8 +401,12 @@ public:
   {
     ab::impact( s );
 
-    p()->trigger_shadow_weaving( s );
+    if ( procs_shadow_weaving && this->result_is_hit( s->result ) )
+      p()->trigger_shadow_weaving( s );
   }
+
+  // Shadow Weaving procs from landed Shadow spells (Proc Flags: Magic Hostile Spell); wand shots are ranged attacks
+  bool procs_shadow_weaving = true;
 };
 
 using priest_spell_t = priest_action_t<spell_t>;
@@ -451,9 +454,6 @@ void priest_t::trigger_shadow_weaving( action_state_t* s )
 
   const action_t* a = s->action;
   if ( !a->harmful || a->background || !dbc::is_school( a->get_school(), SCHOOL_SHADOW ) )
-    return;
-
-  if ( !a->result_is_hit( s->result ) )
     return;
 
   if ( rng().roll( talent.shadow_weaving->effectN( 1 ).percent() ) )
@@ -778,6 +778,7 @@ struct shoot_t : public priest_spell_t
       school = SCHOOL_ARCANE;
     trigger_gcd       = 0_ms;
     may_crit          = true;
+    procs_shadow_weaving = false;
     spell_power_mod.direct = 0.0;
 
     if ( base_execute_time <= 0_ms || base_dd_max < base_dd_min )
