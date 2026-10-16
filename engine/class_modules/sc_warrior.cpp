@@ -145,6 +145,14 @@ constexpr std::array cleave_ranks {
   spell_rank_t{ 20569 },
 };
 
+constexpr std::array sunder_armor_ranks {
+  spell_rank_t{ 7386 },
+  spell_rank_t{ 7405 },
+  spell_rank_t{ 8380 },
+  spell_rank_t{ 11596 },
+  spell_rank_t{ 11597 },
+};
+
 // Execute is only usable on targets at or below this health percentage (spell description, no data field)
 constexpr double execute_health_pct = 20.0;
 
@@ -175,6 +183,9 @@ struct warrior_t : public player_t
   std::string default_food() const override     { return warrior_apl::food( this ); }
 
   double rage_per_swing( const weapon_t& w ) const;
+
+  double composite_player_target_armor( player_t* t ) const override;
+  buff_t* get_sunder_armor( player_t* t );
 
   struct talents_t
   {
@@ -208,6 +219,9 @@ struct warrior_t : public player_t
 
   action_t* heroic_strike = nullptr;
   action_t* cleave        = nullptr;
+
+  // Sunder Armor debuff per target, owned by the target's buff list
+  target_specific_t<buff_t> sunder_armor { false };
 
   // only one on next swing ability can be queued at a time
   bool next_swing_queued() const
@@ -418,6 +432,25 @@ double warrior_t::rage_per_swing( const weapon_t& w ) const
   return w.swing_time.total_seconds() * mult;
 }
 
+buff_t* warrior_t::get_sunder_armor( player_t* t )
+{
+  buff_t*& debuff = sunder_armor[ t ];
+  if ( !debuff )
+    debuff = make_buff( actor_pair_t( t, this ), "sunder_armor",
+                        find_spell( max_rank( this, sunder_armor_ranks ).spell_id ) );
+  return debuff;
+}
+
+double warrior_t::composite_player_target_armor( player_t* t ) const
+{
+  double a = player_t::composite_player_target_armor( t );
+
+  if ( const buff_t* sunder = sunder_armor[ t ] )
+    a = std::max( 0.0, a + sunder->check() * sunder->data().effectN( 1 ).base_value() );
+
+  return a;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////
 //
 // Abilities
@@ -532,6 +565,30 @@ struct whirlwind_t : public warrior_attack_t
     warrior_attack_t( "whirlwind", player, player->find_spell( max_rank( player, whirlwind_ranks ).spell_id ) )
   {
     parse_options( options_str );
+  }
+};
+
+// 2026-10-16: The armor reduction is client aura type 674 (unknown to simc) with the flat armor per stack
+// as its (negative) base value; it stacks to 5 and lasts 30 s per the spell data.
+// TODO: Only reduces armor for this warrior's own attacks (no raid wide armor debuff yet).
+struct sunder_armor_t : public warrior_attack_t
+{
+  sunder_armor_t( warrior_t* player, util::string_view options_str ) :
+    warrior_attack_t( "sunder_armor", player, player->find_spell( max_rank( player, sunder_armor_ranks ).spell_id ) )
+  {
+    parse_options( options_str );
+
+    // create the debuff on the default target up front so debuff.sunder_armor APL expressions resolve
+    if ( data().ok() && target )
+      player->get_sunder_armor( target );
+  }
+
+  void impact( action_state_t* s ) override
+  {
+    warrior_attack_t::impact( s );
+
+    if ( result_is_hit( s->result ) )
+      p()->get_sunder_armor( s->target )->trigger();
   }
 };
 
@@ -797,6 +854,7 @@ action_t* warrior_t::create_action( util::string_view name, util::string_view op
   if ( name == "cleave" )
     return new next_swing_queue_t( this, "cleave_queue", options_str, cleave, &buffs_t::cleave_queued );
   if ( name == "whirlwind" ) return new whirlwind_t( this, options_str );
+  if ( name == "sunder_armor" ) return new sunder_armor_t( this, options_str );
 
 
   if ( name == "thunder_clap" ) return new thunder_clap_t( this, options_str );
