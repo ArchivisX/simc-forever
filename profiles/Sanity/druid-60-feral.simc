@@ -1,0 +1,27 @@
+# Forever druid sample: level 60 Feral (Cat) vs a level 63 boss, from behind (Shred).
+# Pre-raid leather (Shadowcraft) and Hammer of the Titans. In Cat Form the swing is a fixed 1.0 s over the
+# weapon's damage per second. Talents: Feral 31 / Restoration 20 (spec druid.md section 5.1).
+# Uses estimated (vanilla) level 60 base stats, not measured Forever values.
+druid="Sanity_Druid_60_Feral"
+level=60
+race=tauren
+role=attack
+position=back
+# Feral 31: Ferocity 5, Heart of the Wild 5, Shredding Attacks 3, Savage Fury 2, Sharpened Claws 2,
+# Shifting Power (16), Predatory Strikes 3, Blood Frenzy 2, Leader of the Pack (21), Improved Shifting Power 2,
+# Rend and Tear 4, Berserk (31). Restoration 20: Furor 5, Naturalist 5, Natural Shapeshifter 3, Reflection 2,
+# Improved Rejuvenation 3, Gift of Nature 2.
+class_talents=ferocity:5/heart_of_the_wild:5/shredding_attacks:3/savage_fury:2/sharpened_claws:2/shifting_power:1/predatory_strikes:3/blood_frenzy:2/leader_of_the_pack:1/improved_shifting_power:2/rend_and_tear:4/berserk:1/furor:5/naturalist:5/natural_shapeshifter:3/reflection:2/improved_rejuvenation:3/gift_of_nature:2
+head=,id=16707
+neck=,id=19491
+shoulder=,id=16708
+back=,id=18511
+chest=,id=16721
+wrist=,id=16710
+hands=,id=16712
+waist=,id=16713
+legs=,id=16709
+feet=,id=16711
+finger1=,id=20721
+finger2=,id=19325
+main_hand=,id=12796

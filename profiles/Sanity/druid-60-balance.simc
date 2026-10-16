@@ -1,0 +1,26 @@
+# Forever druid sample: level 60 Balance (Moonkin) vs a level 63 boss.
+# Pre-raid caster gear (Wildheart, Magister's Crown, Robe of the Archmage, Crackling Staff). "+spell damage"
+# (item mod 42) counts as spell power. Talents: Balance 31 / Restoration 20 (spec druid.md section 5.2).
+# Uses estimated (vanilla) level 60 base stats, not measured Forever values.
+druid="Sanity_Druid_60_Balance"
+level=60
+race=tauren
+role=spell
+# Balance 31: Improved Wrath 5, Genesis 2, Improved Moonfire 2, Nature's Majesty 2, Nature's Reach 2,
+# Nature's Splendor (11), Moonglow 1, Insect Swarm (16), Vengeance 5, Nature's Grace (21), Eclipse 3, Moonfury 5,
+# Moonkin Form (31). Restoration 20: Naturalist 5, Nature's Focus 5, Reflection 3, Natural Shapeshifter 3,
+# Improved Rejuvenation 3, Living Spirit 1.
+class_talents=improved_wrath:5/genesis:2/improved_moonfire:2/natures_majesty:2/natures_reach:2/natures_splendor:1/moonglow:1/insect_swarm:1/vengeance:5/natures_grace:1/eclipse:3/moonfury:5/moonkin_form:1/naturalist:5/natures_focus:5/reflection:3/natural_shapeshifter:3/improved_rejuvenation:3/living_spirit:1
+head=,id=16686
+neck=,id=19426
+shoulder=,id=16718
+back=,id=19086
+chest=,id=14152
+wrist=,id=16714
+hands=,id=16717
+waist=,id=16716
+legs=,id=16719
+feet=,id=16715
+finger1=,id=19109
+finger2=,id=13001
+main_hand=,id=19102
