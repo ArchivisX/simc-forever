@@ -188,10 +188,10 @@ struct priest_td_t : public actor_target_data_t
   priest_td_t( player_t* target, priest_t* p );
 };
 
-struct priest_t final : public player_t
+struct priest_t final : public parse_player_effects_t
 {
   priest_t( sim_t* sim, util::string_view name, race_e r = RACE_NONE ) :
-    player_t( sim, PRIEST, name, r ) {}
+    parse_player_effects_t( sim, PRIEST, name, r ) {}
 
   resource_e primary_resource() const override { return RESOURCE_MANA; }
 
@@ -206,9 +206,9 @@ struct priest_t final : public player_t
   void create_buffs() override;
   void create_options() override;
   void copy_from( player_t* source ) override;
+  void init_finished() override;
+  void parse_player_effects();
 
-  double composite_player_multiplier( school_e school ) const override;
-  double composite_player_target_multiplier( player_t* target, school_e school ) const override;
   double composite_spell_power( school_e school ) const override;
   double composite_attribute_multiplier( attribute_e attr ) const override;
   double composite_mana_regen_while_casting() const override;
@@ -315,9 +315,9 @@ priest_td_t::priest_td_t( player_t* target, priest_t* p ) : actor_target_data_t(
   dots.holy_fire        = target->get_dot( "holy_fire", p );
   dots.devouring_plague = target->get_dot( "devouring_plague", p );
 
-  // Forever: +2% Shadow damage taken from the priest per stack (vanilla 3%), caster only
-  debuff.shadow_weaving = make_buff( *this, "shadow_weaving", p->spell.shadow_weaving )
-                            ->set_default_value_from_effect( 1 );
+  // Forever: +2% Shadow damage taken from the priest per stack (vanilla 3%), caster only. See
+  // priest_t::parse_player_effects.
+  debuff.shadow_weaving = make_buff( *this, "shadow_weaving", p->spell.shadow_weaving );
 
   debuff.vampiric_embrace = make_buff( *this, "vampiric_embrace", p->talent.vampiric_embrace.spell() );
 }
@@ -366,7 +366,7 @@ public:
       ab::parse_effects( p()->talent.holy_precision.spell(), PARSE_PASSIVE );
 
     // Shadowform effect #5: +100% critical strike damage bonus for the whitelisted Shadow spells. The damage
-    // (A79) and cost (A72) parts are applied in priest_t::composite_player_multiplier and cost_pct_multiplier.
+    // part (A79) is parsed in priest_t::parse_player_effects, the cost part (A72) in cost_pct_multiplier.
     ab::parse_effects( p()->buff.shadowform );
 
     // Inner Focus: next spell is free and, if it is not a periodic spell, gets +25% crit (Oct 1 2026 beta
@@ -903,7 +903,7 @@ action_t* priest_t::create_action( util::string_view name, util::string_view opt
   if ( name == "inner_fire" ) return new inner_fire_t( this, options_str );
   if ( name == "divine_spirit" ) return new divine_spirit_t( this, options_str );
 
-  return player_t::create_action( name, options_str );
+  return parse_player_effects_t::create_action( name, options_str );
 }
 
 void priest_t::init_base_stats()
@@ -911,7 +911,7 @@ void priest_t::init_base_stats()
   // Classic: melee attack power = Str - 10
   base.attack_power_per_strength = 1.0;
 
-  player_t::init_base_stats();
+  parse_player_effects_t::init_base_stats();
 
   base.stats.attack_power = -10.0;
 
@@ -922,7 +922,7 @@ void priest_t::init_base_stats()
 
 void priest_t::init_spells()
 {
-  player_t::init_spells();
+  parse_player_effects_t::init_spells();
 
   auto t = [ this ]( std::string_view n ) { return forever::talent( this, n ); };
 
@@ -972,11 +972,9 @@ void priest_t::init_spells()
 
 void priest_t::create_buffs()
 {
-  player_t::create_buffs();
+  parse_player_effects_t::create_buffs();
 
-  buff.shadowform = make_buff( this, "shadowform", talent.shadowform.spell() )
-                      ->set_default_value_from_effect( 2 )
-                      ->add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
+  buff.shadowform = make_buff( this, "shadowform", talent.shadowform.spell() );
 
   buff.inner_focus = make_buff( this, "inner_focus", talent.inner_focus.spell() );
 
@@ -984,9 +982,7 @@ void priest_t::create_buffs()
                                    talent.power_infusion.rank() > 0
                                      ? dbc::find_spell( this, talent.power_infusion.trait()->id_spell )
                                      : spell_data_t::not_found() )
-                          ->set_default_value_from_effect( 2 )
-                          ->set_cooldown( 0_ms )
-                          ->add_invalidate( CACHE_PLAYER_DAMAGE_MULTIPLIER );
+                          ->set_cooldown( 0_ms );
 
   // Dark Inspiration: the buff spell's base points are the max rank; the talent rank sets the value (3..15%)
   buff.dark_inspiration = make_buff( this, "dark_inspiration", spell.dark_inspiration )
@@ -1009,7 +1005,7 @@ void priest_t::create_buffs()
 
 void priest_t::create_options()
 {
-  player_t::create_options();
+  parse_player_effects_t::create_options();
 
   add_option( opt_float( "priest.spirit_tap_uptime", options.spirit_tap_uptime, 0.0, 1.0 ) );
   add_option( opt_string( "priest.wand", options.wand ) );
@@ -1017,43 +1013,40 @@ void priest_t::create_options()
 
 void priest_t::copy_from( player_t* source )
 {
-  player_t::copy_from( source );
+  parse_player_effects_t::copy_from( source );
 
   options = debug_cast<priest_t*>( source )->options;
 }
 
-double priest_t::composite_player_multiplier( school_e school ) const
+void priest_t::init_finished()
 {
-  double m = player_t::composite_player_multiplier( school );
+  parse_player_effects();
 
-  if ( buff.shadowform->check() && dbc::is_school( school, SCHOOL_SHADOW ) )
-    m *= 1.0 + buff.shadowform->default_value;
-
-  // Power Infusion: Modify Damage Done% for all magic schools
-  if ( buff.power_infusion->check() && school != SCHOOL_PHYSICAL )
-    m *= 1.0 + buff.power_infusion->default_value;
-
-  return m;
+  parse_player_effects_t::init_finished();
 }
 
-double priest_t::composite_player_target_multiplier( player_t* target, school_e school ) const
+// Player level buff and debuff effects from spell data. Effects that act on spells (A107/A108, e.g. Shadowform's
+// crit bonus, Inner Focus) are parsed per action in priest_action_t.
+void priest_t::parse_player_effects()
 {
-  double m = player_t::composite_player_target_multiplier( target, school );
+  // Shadowform: +10% Shadow damage (A79), -15% Physical damage taken (A87). The cost part (A72) is in
+  // priest_action_t::cost_pct_multiplier.
+  parse_effects( buff.shadowform );
 
-  if ( talent.shadow_weaving.ok() && dbc::is_school( school, SCHOOL_SHADOW ) )
-  {
-    const buff_t* sw = get_target_data( target )->debuff.shadow_weaving;
-    m *= 1.0 + sw->check_stack_value();
-  }
+  // Power Infusion: +20% damage for all magic schools (A79)
+  parse_effects( buff.power_infusion );
 
-  return m;
+  // Shadow Weaving: +2% Shadow damage taken from the priest per stack (A270)
+  parse_target_effects( []( actor_target_data_t* td ) {
+    return static_cast<priest_td_t*>( td )->debuff.shadow_weaving->check();
+  }, spell.shadow_weaving );
 }
 
 // Spiritual Guidance effect #1 (aura 174, not in the engine): spell damage +1/3/5/6/8% of total Spirit.
 // The healing part (aura 175) is not modelled (simc has a single spell power stat).
 double priest_t::composite_spell_power( school_e school ) const
 {
-  double sp = player_t::composite_spell_power( school );
+  double sp = parse_player_effects_t::composite_spell_power( school );
 
   if ( talent.spiritual_guidance.ok() )
     sp += talent.spiritual_guidance->effectN( 1 ).percent() * cache.spirit();
@@ -1063,7 +1056,7 @@ double priest_t::composite_spell_power( school_e school ) const
 
 double priest_t::composite_attribute_multiplier( attribute_e attr ) const
 {
-  double m = player_t::composite_attribute_multiplier( attr );
+  double m = parse_player_effects_t::composite_attribute_multiplier( attr );
 
   if ( attr == ATTR_SPIRIT )
   {
@@ -1080,7 +1073,7 @@ double priest_t::composite_attribute_multiplier( attribute_e attr ) const
 
 double priest_t::composite_mana_regen_while_casting() const
 {
-  double r = player_t::composite_mana_regen_while_casting();
+  double r = parse_player_effects_t::composite_mana_regen_while_casting();
 
   // Spirit Tap effect #2 (aura 134 50%), averaged over the option's uptime
   if ( talent.spirit_tap.ok() )
@@ -1091,7 +1084,7 @@ double priest_t::composite_mana_regen_while_casting() const
 
 void priest_t::invalidate_cache( cache_e c )
 {
-  player_t::invalidate_cache( c );
+  parse_player_effects_t::invalidate_cache( c );
 
   if ( c == CACHE_SPIRIT && talent.spiritual_guidance.ok() )
     invalidate_cache( CACHE_SPELL_POWER );
@@ -1101,14 +1094,14 @@ void priest_t::init_action_list()
 {
   if ( !action_list_str.empty() )
   {
-    player_t::init_action_list();
+    parse_player_effects_t::init_action_list();
     return;
   }
 
   clear_action_priority_lists();
   priest_apl::priest( this );
   use_default_action_list = true;
-  player_t::init_action_list();
+  parse_player_effects_t::init_action_list();
 }
 
 }  // namespace priestspace
