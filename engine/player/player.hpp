@@ -1129,12 +1129,14 @@ public:
   /**
    * Default attack power type to use for value computation.
    *
-   * Defaults to BfA "new style" base_power + mh_weapon_dps * coefficient, can be overridden in
-   * class modules. Used by actions as a "last resort" to determine what attack power type drives
-   * the value calculation of the ability.
+   * Forever (2026-10-16): classic attack power has no weapon DPS component, ability coefficients
+   * scale with the player's attack power only, so this defaults to NO_WEAPON instead of the BfA
+   * "new style" base_power + mh_weapon_dps * coefficient. Can be overridden in class modules. Used
+   * by actions as a "last resort" to determine what attack power type drives the value
+   * calculation of the ability.
    */
   virtual attack_power_type default_ap_type() const
-  { return attack_power_type::DEFAULT; }
+  { return attack_power_type::NO_WEAPON; }
 
   // JSON Report extension. Overridable in class methods. Root element is an object assigned for
   // each JSON player object under "custom" property.

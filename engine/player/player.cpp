@@ -4432,9 +4432,8 @@ double player_t::composite_weapon_attack_power_by_type( attack_power_type ap_typ
   switch ( ap_type )
   {
     case attack_power_type::WEAPON_MAINHAND:
-      slot = SLOT_MAIN_HAND;
     case attack_power_type::WEAPON_OFFHAND:
-      slot = SLOT_OFF_HAND;
+      slot = ap_type == attack_power_type::WEAPON_MAINHAND ? SLOT_MAIN_HAND : SLOT_OFF_HAND;
       if ( equipped_weapons.at( slot ).type != WEAPON_NONE )
       {
         wdps = equipped_weapons.at( slot ).dps;
