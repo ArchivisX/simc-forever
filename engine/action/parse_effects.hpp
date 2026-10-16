@@ -807,6 +807,7 @@ struct parse_action_base_t : public parse_effects_t
   std::vector<player_effect_t> crit_chance_effects;
   std::vector<player_effect_t> crit_chance_multiplier_effects;
   std::vector<player_effect_t> crit_bonus_effects;
+  std::vector<player_effect_t> hit_chance_effects;  // Forever: classic SPELLMOD_RESIST_MISS_CHANCE (property 16)
   std::vector<player_effect_t> spell_school_effects;
   std::vector<target_effect_t> target_multiplier_effects;
   std::vector<target_effect_t> target_crit_chance_effects;
@@ -1022,6 +1023,16 @@ struct parse_action_effects_t : public BASE, public parse_action_base_t
       cc += get_effect_value( i );
 
     return cc;
+  }
+
+  double composite_hit() const override
+  {
+    auto hit = BASE::composite_hit();
+
+    for ( const auto& i : hit_chance_effects )
+      hit += get_effect_value( i );
+
+    return hit;
   }
 
   double composite_crit_chance_multiplier() const override

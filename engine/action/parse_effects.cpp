@@ -1606,6 +1606,11 @@ std::vector<player_effect_t>* parse_action_base_t::get_effect_vector( const spel
       case P_CRIT:
         str = "crit chance";
         return &crit_chance_effects;
+      // Forever: in classic client data property 16 is the hit chance modifier (Arcane Focus, Elemental
+      // Precision, Shadow Focus, Holy Precision, ...), retail reuses the id as penetration.
+      case P_PENETRATION:
+        str = "hit chance";
+        return &hit_chance_effects;
       case P_RESOURCE_COST_1:
         val_mul = power_type_data_t::multiplier( _action->current_resource(), _action->sim->dbc->ptr );
         str = "flat cost";
@@ -1871,6 +1876,7 @@ void parse_action_base_t::parsed_effects_html( report::sc_html_stream& os ) cons
     print_parsed_type( os, &VEC::ta_multiplier_effects, "Periodic Damage" );
     print_parsed_type( os, &VEC::crit_chance_effects, "Critical Strike Chance" );
     print_parsed_type( os, &VEC::crit_bonus_effects, "Critical Strike Bonus Damage" );
+    print_parsed_type( os, &VEC::hit_chance_effects, "Hit Chance" );
     print_parsed_type( os, &VEC::flat_execute_time_effects, "Flat Cast Time", nullptr, timespan_fn );
     print_parsed_type( os, &VEC::execute_time_effects, "Percent Cast Time" );
     print_parsed_type( os, &VEC::gcd_effects, "Percent GCD" );
@@ -1911,6 +1917,7 @@ size_t parse_action_base_t::total_effects_count() const
          crit_chance_effects.size() +
          crit_chance_multiplier_effects.size() +
          crit_bonus_effects.size() +
+         hit_chance_effects.size() +
          spell_school_effects.size() +
          target_multiplier_effects.size() +
          target_crit_chance_effects.size() +
