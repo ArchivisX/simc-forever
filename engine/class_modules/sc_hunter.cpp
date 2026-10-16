@@ -1099,8 +1099,6 @@ struct summon_hawk_t : public hunter_ranged_attack_t
                                                          : spell_data_t::not_found() )
   {
     parse_options( options_str );
-    // client Min Travel Time 1 s
-    min_travel_time = 1.0;
   }
 
   // Gated by the talent node; the trained ranks have their own levels
@@ -1687,7 +1685,7 @@ void hunter_t::create_buffs()
   buff.aspect_of_the_viper = make_buff( this, "aspect_of_the_viper", viper )
                                ->set_chance( 1.0 )
                                ->set_default_value( viper->effectN( 2 ).percent() )
-                               ->set_period( viper->effectN( 1 ).period() > 0_ms ? viper->effectN( 1 ).period() : 3_s )
+                               ->set_period( viper->effectN( 1 ).period() )
                                ->set_tick_callback( [ this, viper ]( buff_t*, int, timespan_t ) {
                                    resource_gain( RESOURCE_MANA, viper->effectN( 1 ).percent() * resources.max[ RESOURCE_MANA ],
                                                   gain.viper_periodic );
@@ -1733,12 +1731,11 @@ void hunter_t::create_buffs()
 
   buff.raptor_strike_queued = make_buff( this, "raptor_strike_queued" );
 
-  // Up to 2 hawks (Summon Hawk effect #3), each its own 18 s guardian
+  // Up to 2 hawks (Summon Hawk effect #3), each its own guardian (1293248, 18 s)
   const spell_data_t* hawk_pet = find_spell( SUMMON_HAWK_PET );
   for ( size_t i = 0; i < buff.hawk.size(); i++ )
   {
     buff.hawk[ i ] = make_buff( this, fmt::format( "hawk_{}", i + 1 ), hawk_pet )
-                       ->set_duration( hawk_pet->duration() > 0_ms ? hawk_pet->duration() : 18_s )
                        ->set_period( timespan_t::from_seconds( HAWK_SWING_TIME ) )
                        ->set_tick_callback( [ this ]( buff_t*, int, timespan_t ) {
                            if ( hawk_strike && target && !target->is_sleeping() )
