@@ -3879,6 +3879,7 @@ void sim_t::create_options()
   add_option( opt_bool( "classic_partial_resists", classic.partial_resists ) );
   add_option( opt_bool( "classic_vanilla_spirit_regen", classic.vanilla_spirit_regen ) );
   add_option( opt_bool( "classic_energy_tick", classic.energy_tick ) );
+  add_option( opt_bool( "classic_low_rank_penalty", classic.low_rank_penalty ) );
   add_option( opt_bool( "log_spell_id", log_spell_id ) );
   add_option( opt_int( "desired_targets", desired_targets ) );
   add_option( opt_int( "desired_tank_targets", desired_tank_targets ) );

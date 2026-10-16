@@ -2679,6 +2679,17 @@ void action_t::init()
 
   assert( !( n_targets() && channeled ) && "DONT create a channeled aoe spell!" );
 
+  // Forever: optional vanilla low level spell penalty, 1 - (20 - spell level) * 0.0375 of the spell power
+  // coefficient for spells learned below level 20 (classic_low_rank_penalty=1). Forever's actual rule is
+  // unknown (2026-10-01 beta notes: "low ranks get less spell power benefit"). 2026-10-16
+  if ( sim->classic.low_rank_penalty && !player->is_pet() && !player->is_enemy() && data().ok() &&
+       data().level() > 0 && data().level() < 20 )
+  {
+    double penalty = std::max( 0.0, 1.0 - ( 20.0 - data().level() ) * 0.0375 );
+    spell_power_mod.direct *= penalty;
+    spell_power_mod.tick *= penalty;
+  }
+
   if ( !option.sync_str.empty() )
   {
     sync_action = player->find_action( option.sync_str );
