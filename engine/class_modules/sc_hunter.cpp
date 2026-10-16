@@ -321,6 +321,7 @@ struct hunter_t final : public player_t
     buff_t* rapid_fire           = nullptr;
     buff_t* quick_shots          = nullptr;
     buff_t* quick_strikes        = nullptr;
+    buff_t* quick_strikes_falcon = nullptr;
     buff_t* furious_howl         = nullptr;
     buff_t* expose_prey          = nullptr;
     buff_t* rapid_recuperation   = nullptr;
@@ -402,7 +403,7 @@ struct hunter_t final : public player_t
   bool pet_active() const;
   double ranged_attack_power( player_t* target ) const;
   double ranged_speed_multiplier() const;
-  double pet_happiness_multiplier() const;
+  double pet_happiness_multiplier = 1.0;  // from options.pet_happiness, set in init_base_stats
   timespan_t auto_shot_blocked_until() const;
   void trigger_expose_prey( const action_state_t* s );
   void trigger_resourcefulness( const action_state_t* s );
@@ -549,7 +550,7 @@ struct hunter_pet_t : public pet_t
   {
     double m = pet_t::composite_player_multiplier( s );
 
-    m *= o()->pet_happiness_multiplier();
+    m *= o()->pet_happiness_multiplier;
     m *= 1.0 + o()->talent.unleashed_fury->effectN( 1 ).percent();
     m *= 1.0 + o()->talent.focused_fire->effectN( 1 ).percent();
     m *= 1.0 + buff.bestial_wrath->check_value();
@@ -983,7 +984,7 @@ struct hunter_melee_t : public hunter_attack_t
     if ( p()->talent.deadly_aspects.ok() && p()->buff.aspect_of_the_beast->check() )
       p()->buff.quick_strikes->trigger( 1, buff_t::DEFAULT_VALUE(), p()->talent.deadly_aspects->effectN( 2 ).percent() );
     if ( p()->talent.deadly_aspects.ok() && p()->buff.aspect_of_the_falcon->check() )
-      p()->buff.quick_strikes->trigger( 1, buff_t::DEFAULT_VALUE(), p()->talent.deadly_aspects->effectN( 1 ).percent() );
+      p()->buff.quick_strikes_falcon->trigger( 1, buff_t::DEFAULT_VALUE(), p()->talent.deadly_aspects->effectN( 1 ).percent() );
 
     if ( p()->buff.aspect_of_the_viper->check() )
       p()->resource_gain( RESOURCE_MANA,
@@ -1569,6 +1570,16 @@ void hunter_t::init_base_stats()
 
   base.stats.attack_power = 2.0 * level() - 20.0;
 
+  // ESTIMATE (vanilla happiness): happy 125%, content 100%, unhappy 75% pet damage
+  if ( util::str_compare_ci( options.pet_happiness, "happy" ) )
+    pet_happiness_multiplier = 1.25;
+  else if ( util::str_compare_ci( options.pet_happiness, "content" ) )
+    pet_happiness_multiplier = 1.0;
+  else if ( util::str_compare_ci( options.pet_happiness, "unhappy" ) )
+    pet_happiness_multiplier = 0.75;
+  else
+    throw std::invalid_argument( fmt::format( "pet_happiness: unknown value '{}' (happy, content, unhappy)", options.pet_happiness ) );
+
   // ESTIMATE: vanilla hunters have no base melee/ranged crit beyond Agility (cmangos classic). Passive crit
   // talents (Lethal Attacks, aura 290 "all_crit") still apply.
   base.all_crit           = get_passive_player_value( 0.0, "all_crit" );
@@ -1696,8 +1707,13 @@ void hunter_t::create_buffs()
                        ->set_default_value( find_spell( QUICK_SHOTS )->effectN( 1 ).percent() );
 
   buff.quick_strikes = make_buff( this, "quick_strikes", find_spell( QUICK_STRIKES ) )
-                         ->set_default_value( find_spell( QUICK_STRIKES )->effectN( 1 ).percent() )
+                         ->set_default_value_from_effect_type( A_MOD_MELEE_AUTO_ATTACK_SPEED )
                          ->add_invalidate( CACHE_AUTO_ATTACK_SPEED );
+
+  // Aspect of the Falcon triggers its own copy (effect #3)
+  buff.quick_strikes_falcon = make_buff( this, "quick_strikes_falcon", find_spell( QUICK_STRIKES_FALC ) )
+                                ->set_default_value_from_effect_type( A_MOD_MELEE_AUTO_ATTACK_SPEED )
+                                ->add_invalidate( CACHE_AUTO_ATTACK_SPEED );
 
   buff.furious_howl = make_buff( this, "furious_howl", find_spell( max_rank( this, furious_howl_ranks ).spell_id ) )
                         ->add_invalidate( CACHE_ATTACK_POWER );
@@ -1882,15 +1898,6 @@ bool hunter_t::pet_active() const
   return pets.active && !pets.active->is_sleeping();
 }
 
-double hunter_t::pet_happiness_multiplier() const
-{
-  if ( util::str_compare_ci( options.pet_happiness, "unhappy" ) )
-    return 0.75;
-  if ( util::str_compare_ci( options.pet_happiness, "content" ) )
-    return 1.0;
-  return 1.25;
-}
-
 // Hit: the core ignores aura 54 "Modify Hit%" passives and hit rating (composite_melee_hit has the rating
 // line commented out). Class-local until the shared change lands: Surefooted (+1-3%, effect #3) and gear
 // hit rating through the client combat rating table.
@@ -1950,6 +1957,7 @@ double hunter_t::composite_melee_auto_attack_speed() const
 
   s /= 1.0 + buff.rapid_fire->check_value();
   s /= 1.0 + buff.quick_strikes->check_value();
+  s /= 1.0 + buff.quick_strikes_falcon->check_value();
 
   return s;
 }
