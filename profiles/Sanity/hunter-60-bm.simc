@@ -1,0 +1,24 @@
+# Forever hunter sanity sim: level 60 Beast Mastery (cat pet, Summon Hawk, Bestial Wrath) vs a level 63 boss.
+# Talents 31/20/0 (spec 5.2). Same gear as hunter-60-mm.simc. Pet damage/scaling, focus regen and the hawks
+# are ESTIMATES (see FOREVER_HUNTER.md).
+hunter="Sanity_Hunter_60_BM"
+level=60
+race=night_elf
+role=attack
+position=back
+class_talents=deadly_aspects:5/focused_fire:2/improved_aspect_of_the_monkey:3/unleashed_fury:5/bestial_swiftness:1/ferocity:5/summon_hawk:1/intimidation:1/bestial_discipline:2/frenzy:5/bestial_wrath:1/lethal_attacks:5/careful_aim:5/efficiency:5/trueshot_aura:1/mortal_shots:4
+ammo_dps=17.5
+quiver_haste=15
+head=,id=16677
+neck=,id=18404
+shoulder=,id=16679
+chest=,id=16674
+waist=,id=16680
+legs=,id=16678
+feet=,id=16675
+wrist=,id=16681
+hands=,id=16676
+finger1=,id=18821
+finger2=,id=19325
+main_hand=,id=19106
+ranged=,id=18713
