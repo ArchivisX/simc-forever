@@ -802,6 +802,10 @@ struct faerie_fire_t : public druid_spell_t
   {
     parse_options( options_str );
 
+    // free in Cat Form (effect #3, -100% cost); the flat cooldown and global cooldown modifiers are applied in
+    // execute(), parse_effects only handles percent ones conditionally
+    parse_effects( p->spell.cat_form_passive, [ p ] { return p->buff.cat_form->check(); } );
+
     // create the debuff on the default target up front so debuff.faerie_fire APL expressions resolve
     if ( data().ok() && target )
       td( target );
@@ -809,13 +813,6 @@ struct faerie_fire_t : public druid_spell_t
 
   bool in_cat() const
   { return p()->buff.cat_form->check(); }
-
-  double cost_pct_multiplier() const override
-  {
-    if ( in_cat() )
-      return 1.0 + p()->spell.cat_form_passive->effectN( 3 ).percent();
-    return druid_spell_t::cost_pct_multiplier();
-  }
 
   void execute() override
   {
