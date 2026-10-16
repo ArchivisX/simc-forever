@@ -366,6 +366,32 @@ rogue_td_t::rogue_td_t( player_t* target, rogue_t* p ) : actor_target_data_t( ta
 // Rogue Action Base
 // ==========================================================================
 
+// Combo points spent by a finisher, snapshot with the cast so a running bleed keeps the value it was cast with
+struct rogue_action_state_t : public action_state_t
+{
+  int cp = 0;
+
+  using action_state_t::action_state_t;
+
+  void initialize() override
+  {
+    action_state_t::initialize();
+    cp = 0;
+  }
+
+  void copy_state( const action_state_t* s ) override
+  {
+    action_state_t::copy_state( s );
+    cp = debug_cast<const rogue_action_state_t*>( s )->cp;
+  }
+
+  std::ostringstream& debug_str( std::ostringstream& s ) override
+  {
+    action_state_t::debug_str( s ) << " cp=" << cp;
+    return s;
+  }
+};
+
 template <class Base>
 struct rogue_action_t : public parse_action_effects_t<Base>
 {
@@ -420,6 +446,26 @@ public:
 
   rogue_td_t* td( player_t* t ) const
   { return p()->get_target_data( t ); }
+
+  static const rogue_action_state_t* cast_state( const action_state_t* s )
+  { return debug_cast<const rogue_action_state_t*>( s ); }
+
+  static rogue_action_state_t* cast_state( action_state_t* s )
+  { return debug_cast<rogue_action_state_t*>( s ); }
+
+  action_state_t* new_state() override
+  { return new rogue_action_state_t( this, this->target ); }
+
+  // Finishers spend every combo point the rogue has
+  virtual bool consumes_combo_points() const
+  { return false; }
+
+  void snapshot_state( action_state_t* s, result_amount_type rt ) override
+  {
+    cast_state( s )->cp = consumes_combo_points() ? as<int>( p()->resources.current[ RESOURCE_COMBO_POINT ] ) : 0;
+
+    ab::snapshot_state( s, rt );
+  }
 
   bool ready() override
   {
@@ -1005,10 +1051,11 @@ struct mutilate_t : public rogue_attack_t
 template <class Base>
 struct rogue_finisher_t : public Base
 {
-  double cp = 0;  // combo points spent by the current cast
-
   template <typename... Args>
   rogue_finisher_t( Args&&... args ) : Base( std::forward<Args>( args )... ) {}
+
+  bool consumes_combo_points() const override
+  { return true; }
 
   bool ready() override
   {
@@ -1020,17 +1067,16 @@ struct rogue_finisher_t : public Base
 
   void execute() override
   {
-    cp = this->p()->resources.current[ RESOURCE_COMBO_POINT ];
-
     Base::execute();
 
     if ( this->result_is_hit( this->execute_state->result ) )
-      spend_combo_points();
+      spend_combo_points( this->execute_state );
   }
 
-  virtual void spend_combo_points()
+  virtual void spend_combo_points( const action_state_t* s )
   {
     rogue_t* p = this->p();
+    double cp  = this->cast_state( s )->cp;
 
     p->resource_loss( RESOURCE_COMBO_POINT, cp, nullptr, this );
     this->stats->consume_resource( RESOURCE_COMBO_POINT, cp );
@@ -1072,10 +1118,10 @@ struct eviscerate_t : public rogue_finisher_t<rogue_attack_t>
   }
 
   double base_da_min( const action_state_t* s ) const override
-  { return rogue_finisher_t::base_da_min( s ) + per_cp * cp; }
+  { return rogue_finisher_t::base_da_min( s ) + per_cp * cast_state( s )->cp; }
 
   double base_da_max( const action_state_t* s ) const override
-  { return rogue_finisher_t::base_da_max( s ) + per_cp * cp; }
+  { return rogue_finisher_t::base_da_max( s ) + per_cp * cast_state( s )->cp; }
 
   double composite_da_multiplier( const action_state_t* s ) const override
   {
@@ -1094,7 +1140,6 @@ struct eviscerate_t : public rogue_finisher_t<rogue_attack_t>
 struct rupture_t : public rogue_finisher_t<rogue_attack_t>
 {
   double per_cp;
-  double tick_cp = 0;  // combo points of the cast that applied the running bleed
 
   rupture_t( rogue_t* p, util::string_view options_str ) :
     rogue_finisher_t<rogue_attack_t>( "rupture", p, p->find_spell( max_rank( p, rupture_ranks ).spell_id ) ),
@@ -1105,26 +1150,14 @@ struct rupture_t : public rogue_finisher_t<rogue_attack_t>
     dot_behavior = DOT_CLIP;
   }
 
-  void execute() override
-  {
-    rogue_finisher_t::execute();
-  }
-
   timespan_t composite_dot_duration( const action_state_t* s ) const override
   {
-    return rogue_finisher_t::composite_dot_duration( s ) + rupture_per_cp * cp;
+    return rogue_finisher_t::composite_dot_duration( s ) + rupture_per_cp * cast_state( s )->cp;
   }
 
-  void impact( action_state_t* s ) override
-  {
-    if ( result_is_hit( s->result ) )
-      tick_cp = cp;
-
-    rogue_finisher_t::impact( s );
-  }
-
+  // the dot keeps a copy of the cast's state, so each tick uses the combo points it was cast with
   double base_ta( const action_state_t* s ) const override
-  { return rogue_finisher_t::base_ta( s ) + per_cp * tick_cp; }
+  { return rogue_finisher_t::base_ta( s ) + per_cp * cast_state( s )->cp; }
 
   void tick( dot_t* d ) override
   {
@@ -1156,7 +1189,7 @@ struct slice_and_dice_t : public rogue_finisher_t<rogue_spell_t>
     // data().duration() already carries Improved Slice and Dice (parsed passive), the per point part gets the
     // same multiplier
     double pct          = p()->get_passive_value( data(), "duration" )[ 2 ];
-    timespan_t duration = data().duration() + slice_and_dice_per_cp * cp * pct;
+    timespan_t duration = data().duration() + slice_and_dice_per_cp * cast_state( execute_state )->cp * pct;
     p()->buff.slice_and_dice->trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, duration );
   }
 };
@@ -1179,7 +1212,8 @@ struct venom_t : public rogue_finisher_t<rogue_spell_t>
   {
     rogue_finisher_t::execute();
 
-    p()->buff.venom->trigger( 1, buff_t::DEFAULT_VALUE(), -1.0, data().duration() + venom_per_cp * cp );
+    p()->buff.venom->trigger( 1, buff_t::DEFAULT_VALUE(), -1.0,
+                              data().duration() + venom_per_cp * cast_state( execute_state )->cp );
   }
 };
 
@@ -1202,15 +1236,15 @@ struct expose_armor_t : public rogue_finisher_t<rogue_attack_t>
     rogue_finisher_t::impact( s );
 
     if ( result_is_hit( s->result ) )
-      td( s->target )->debuff.expose_armor->trigger( 1, data().effectN( 1 ).pp_combo_points() * cp );
+      td( s->target )->debuff.expose_armor->trigger( 1, data().effectN( 1 ).pp_combo_points() * cast_state( s )->cp );
   }
 
-  void spend_combo_points() override
+  void spend_combo_points( const action_state_t* s ) override
   {
-    rogue_finisher_t::spend_combo_points();
+    rogue_finisher_t::spend_combo_points( s );
 
     const auto& t = p()->talent.improved_expose_armor;
-    if ( t.ok() && cp >= t->effectN( 3 ).base_value() )
+    if ( t.ok() && cast_state( s )->cp >= t->effectN( 3 ).base_value() )
       p()->trigger_combo_point_gain( t->effectN( 2 ).base_value(), p()->gain.improved_expose_armor, this );
   }
 };
