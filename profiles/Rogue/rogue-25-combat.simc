@@ -1,0 +1,13 @@
+# Forever rogue sample: level 25 Combat leveling (0/16/0): a 60 s fight on a same-level mob.
+# Base stats L21-30 are ESTIMATE rows (vanilla). Abilities at 25: Sinister Strike R4, Eviscerate R4,
+# Slice and Dice R1, Instant Poison I (level 20). Naked + Shadowfang (2.7) / Scimitar of Atun (2.6).
+rogue="Forever_Rogue_25_Combat"
+level=25
+race=human
+role=attack
+position=back
+class_talents=improved_eviscerate:3/improved_sinister_strike:2/precision:3/deflection:2/endurance:2/riposte:1/improved_sprint:2/flawless_execution:1
+main_hand=,id=1482
+off_hand=,id=1469
+target_level=25
+max_time=60

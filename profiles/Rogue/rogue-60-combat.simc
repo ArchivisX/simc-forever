@@ -1,0 +1,20 @@
+# Forever rogue sample: level 60 Combat swords (18/33/0) vs a level 63 boss.
+# Base stats L31-60 are ESTIMATE rows (vanilla). Talents use class_talents (no rogue addon export yet).
+# Swords: Sword of Zeal (2.8) / Assassination Blade (2.7). Instant Poison on both hands.
+rogue="Forever_Rogue_60_Combat"
+level=60
+race=human
+role=attack
+position=back
+class_talents=malice:5/ruthlessness:3/murder:2/improved_slice_and_dice:3/relentless_strikes:1/lethality:4/improved_eviscerate:3/improved_sinister_strike:2/precision:3/deflection:2/riposte:1/endurance:2/improved_sprint:2/flawless_execution:1/dual_wield_specialization:5/blade_flurry:1/hack_and_slash:5/weapon_expertise:2/aggression:3/adrenaline_rush:1
+# Pre-raid leather: Shadowcraft (cap, spaulders, tunic, bracers, belt, boots), Devilsaur gauntlets and leggings
+head=,id=16707
+shoulder=,id=16708
+chest=,id=16721
+wrist=,id=16710
+hands=,id=15063
+waist=,id=16713
+legs=,id=15062
+feet=,id=16711
+main_hand=,id=6622
+off_hand=,id=13036

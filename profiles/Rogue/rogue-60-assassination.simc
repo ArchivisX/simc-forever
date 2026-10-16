@@ -1,0 +1,20 @@
+# Forever rogue sample: level 60 Assassination Mutilate/Seal Fate (36/15/0) vs a level 63 boss, from behind.
+# Base stats L31-60 are ESTIMATE rows (vanilla). Talents use class_talents (no rogue addon export yet).
+# Daggers: Heartseeker (1.9) / Glacial Blade (1.8). Deadly Poison main hand, Instant Poison off hand.
+rogue="Forever_Rogue_60_Assassination"
+level=60
+race=human
+role=attack
+position=back
+class_talents=malice:5/ruthlessness:3/murder:2/relentless_strikes:1/lethality:5/cold_blood:1/vile_poisons:5/improved_poisons:5/mutilate:1/vigor:2/seal_fate:5/venom:1/improved_eviscerate:3/improved_sinister_strike:2/precision:3/puncturing_wounds:3/endurance:2/improved_sprint:2
+# Pre-raid leather: Shadowcraft (cap, spaulders, tunic, bracers, belt, boots), Devilsaur gauntlets and leggings
+head=,id=16707
+shoulder=,id=16708
+chest=,id=16721
+wrist=,id=16710
+hands=,id=15063
+waist=,id=16713
+legs=,id=15062
+feet=,id=16711
+main_hand=,id=12783
+off_hand=,id=19099
