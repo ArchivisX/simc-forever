@@ -1889,8 +1889,6 @@ void print_html_talents( report::sc_html_stream& os, const player_t& p )
   static constexpr short HERO_TREE_COLUMNS = 5;  // include the middle 'half' column for first & last rows
   using talentrank_t = std::pair<const trait_data_t*, unsigned>;
 
-  std::array<std::vector<talentrank_t>, CLASS_TREE_ROWS> class_traits;
-  std::array<std::vector<talentrank_t>, SPEC_TREE_ROWS> spec_traits;
   std::map<unsigned, std::array<std::vector<talentrank_t>, HERO_TREE_ROWS>> hero_traits;
   size_t class_points = 0;
   size_t spec_points = 0;
@@ -1898,6 +1896,28 @@ void print_html_talents( report::sc_html_stream& os, const player_t& p )
 
   auto class_col = class_columns( p.specialization(), p.is_ptr() );
   auto spec_col = spec_columns( p.specialization(), p.is_ptr() );
+  unsigned class_rows = CLASS_TREE_ROWS;
+  unsigned spec_rows = SPEC_TREE_ROWS;
+
+  // Size the grids to fit the selected traits as well (Forever class trees are larger than retail's, and their
+  // traits don't all carry the player's spec)
+  for ( const auto& [ _tree, _id, _rank ] : p.player_traits )
+  {
+    auto trait = trait_data_t::find( _id, maybe_ptr( p.dbc->ptr ) );
+    if ( _tree == talent_tree::CLASS )
+    {
+      class_col = std::max( class_col, as<short>( trait->col ) );
+      class_rows = std::max( class_rows, as<unsigned>( trait->row ) );
+    }
+    else if ( _tree == talent_tree::SPECIALIZATION )
+    {
+      spec_col = std::max( spec_col, as<short>( trait->col ) );
+      spec_rows = std::max( spec_rows, as<unsigned>( trait->row ) );
+    }
+  }
+
+  std::vector<std::vector<talentrank_t>> class_traits( class_rows );
+  std::vector<std::vector<talentrank_t>> spec_traits( spec_rows );
 
   range::for_each( class_traits, [ class_col ]( auto& row ) { row.resize( class_col ); } );
   range::for_each( spec_traits, [ spec_col ]( auto& row ) { row.resize( spec_col ); } );
@@ -1975,14 +1995,12 @@ void print_html_talents( report::sc_html_stream& os, const player_t& p )
 
   if ( range::accumulate( class_traits, 0, &std::vector<talentrank_t>::size ) )
   {
-    print_html_talent_table( os, p, util::player_type_string_long( p.type ), class_points, class_traits,
-                             class_columns( p.specialization(), p.is_ptr() ) );
+    print_html_talent_table( os, p, util::player_type_string_long( p.type ), class_points, class_traits, class_col );
   }
 
   if ( range::accumulate( spec_traits, 0, &std::vector<talentrank_t>::size ) )
   {
-    print_html_talent_table( os, p, util::spec_string_no_class( p ), spec_points, spec_traits,
-                             spec_columns( p.specialization(), p.is_ptr() ) );
+    print_html_talent_table( os, p, util::spec_string_no_class( p ), spec_points, spec_traits, spec_col );
   }
 
   if ( !hero_traits.empty() )

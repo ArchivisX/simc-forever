@@ -978,7 +978,9 @@ player_t::player_t( sim_t* s, player_e t, util::string_view n, race_e r )
     true_level( default_level ),
     party( 0 ),
     ready_type( READY_POLL ),
-    _spec( SPEC_NONE ),
+    // Forever: every class has a single specialization, so a profile doesn't need spec= (the talent hash export and
+    // import need it)
+    _spec( dbc::translate_spec_str( t, "" ) ),
     bugs( true ),
     disable_hotfixes( 0 ),
     scale_player( true ),
