@@ -1299,7 +1299,7 @@ struct premeditation_t : public rogue_spell_t
   }
 };
 
-// Preparation: finishes the cooldown of every other rogue ability
+// Preparation: finishes the cooldown of every other rogue ability (not items, potions or racials)
 struct preparation_t : public rogue_spell_t
 {
   preparation_t( rogue_t* p, util::string_view options_str ) :
@@ -1318,7 +1318,8 @@ struct preparation_t : public rogue_spell_t
 
     for ( action_t* a : player->action_list )
     {
-      if ( a != this && a->cooldown && a->cooldown != cooldown && a->cooldown->duration > 0_ms )
+      if ( a != this && a->data().is_class( ROGUE ) && a->cooldown && a->cooldown != cooldown &&
+           a->cooldown->duration > 0_ms )
         a->cooldown->reset( false );
     }
   }
