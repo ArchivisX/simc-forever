@@ -1,0 +1,19 @@
+# Forever foundation sanity sim: level 60 caster mana economy vs a level 63 boss.
+# No Life Tap on purpose: the warlock should go OOM, then live off spirit regen (five second rule) and
+# mp5, plus one Major Mana Potion / Dark Rune per minute. Check Gains (Mana Regen, mana_potion,
+# dark_rune), the mana timeline/Waiting% and Shadow Bolt Miss ~17% (16% miss + no hit gear), Hit
+# ~0.94x base (6% average partial resist vs +3). Estimated (vanilla) level 60 base stats.
+warlock="Sanity_Warlock_60"
+level=60
+race=human
+role=spell
+# Robe of the Archmage (+40 spell power, +crit), Mindthrust Bracers (mp5)
+chest=,id=14152
+wrist=,id=1974
+main_hand=,id=873
+actions.precombat=summon_imp
+actions=mana_potion,if=mana.pct<30
+actions+=/dark_rune,if=mana.pct<30
+actions+=/corruption,if=!ticking|remains<2
+actions+=/bane_of_agony,if=!ticking
+actions+=/shadow_bolt

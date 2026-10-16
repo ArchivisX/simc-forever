@@ -1,0 +1,15 @@
+# Forever foundation sanity sim: level 60 melee vs a level 63 boss.
+# Checks the classic attack table in the result table: Miss ~8%, Dodge ~6.5%, Glance ~40% at ~65% damage,
+# crit suppressed by 4.8%. Uses estimated (vanilla) level 60 base stats, not measured Forever values.
+warrior="Sanity_Warrior_60"
+level=60
+race=human
+role=attack
+position=back
+# Arcanite Reaper (2H axe, 3.8 speed)
+main_hand=,id=12784
+actions.precombat=battle_shout
+actions=auto_attack
+actions+=/battle_shout,if=!buff.battle_shout.up
+actions+=/rend,if=!ticking
+actions+=/heroic_strike,if=rage>=40

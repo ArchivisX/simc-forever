@@ -1,0 +1,9 @@
+# Forever foundation sanity sim: dual wield white swing miss (+19% -> ~27% vs a level 63 boss).
+warrior="Sanity_Warrior_60_DW"
+level=60
+race=human
+role=attack
+position=back
+main_hand=,id=19019
+off_hand=,id=12784
+actions=auto_attack
