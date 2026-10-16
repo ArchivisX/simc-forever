@@ -154,9 +154,9 @@ struct mage_td_t : public actor_target_data_t
 // Mage
 // ==========================================================================
 
-struct mage_t final : public player_t
+struct mage_t final : public parse_player_effects_t
 {
-  mage_t( sim_t* sim, std::string_view name, race_e r = RACE_NONE ) : player_t( sim, MAGE, name, r ) {}
+  mage_t( sim_t* sim, std::string_view name, race_e r = RACE_NONE ) : parse_player_effects_t( sim, MAGE, name, r ) {}
 
   struct options_t
   {
@@ -285,9 +285,8 @@ struct mage_t final : public player_t
 
 mage_td_t::mage_td_t( player_t* target, mage_t* p ) : actor_target_data_t( target, p )
 {
-  // Improved Scorch (Forever): Fire damage taken from this mage only, +3% per stack
-  debuff.fire_vulnerability = make_buff( *this, "fire_vulnerability", p->spell.fire_vulnerability )
-                                ->set_default_value_from_effect( 1 );
+  // Improved Scorch (Forever): Fire damage taken from this mage only, +3% per stack (mage_t::create_buffs)
+  debuff.fire_vulnerability = make_buff( *this, "fire_vulnerability", p->spell.fire_vulnerability );
 
   // Winter's Chill (70425 + hotfix): +5% Cone of Cold damage taken and +7% Cone of Cold spell power
   // coefficient per stack, consumed by the next Cone of Cold
@@ -387,10 +386,6 @@ public:
   double composite_target_multiplier( player_t* t ) const override
   {
     double m = ab::composite_target_multiplier( t );
-
-    // Improved Scorch: Fire Vulnerability is aura 270 (damage taken from caster, by school), not parsed
-    if ( is_fire() )
-      m *= 1.0 + td( t )->debuff.fire_vulnerability->check_stack_value();
 
     // Fire Power (70425): +s1% per own Fire effect on the target, up to 4 effects, pure Fire spells only.
     // ESTIMATE: which effects count is unverified (V4); see mage_t::fire_effects_on.
@@ -892,7 +887,6 @@ struct ignite_t : public residual_action::residual_periodic_action_t<mage_spell_
 {
   ignite_t( mage_t* p ) : residual_action_t( "ignite", p, p->spell.ignite )
   {
-    school         = SCHOOL_FIRE;
     hasted_ticks   = false;
     tick_may_crit  = false;
     may_miss       = false;
@@ -1299,6 +1293,12 @@ void mage_t::create_buffs()
   buff.mage_armor  = make_buff( this, "mage_armor", find_spell( max_rank( this, mage_armor_ranks ).spell_id ) );
   buff.ice_armor   = make_buff( this, "ice_armor", find_spell( max_rank( this, ice_armor_ranks ).spell_id ) );
   buff.frost_armor = make_buff( this, "frost_armor", find_spell( max_rank( this, frost_armor_ranks ).spell_id ) );
+
+  // Improved Scorch: Fire Vulnerability is aura 270 (Fire damage taken from this mage), per stack
+  if ( talent.improved_scorch.ok() )
+    parse_target_effects( []( actor_target_data_t* td ) {
+      return static_cast<mage_td_t*>( td )->debuff.fire_vulnerability->check();
+    }, spell.fire_vulnerability );
 }
 
 void mage_t::init_base_stats()
