@@ -1,0 +1,19 @@
+# Forever priest sample: level 60 Shadow (Shadowform) vs a level 63 boss, default APL.
+# Gear is a stat stand-in for a fresh level 60 in dungeon blues (no real addon export exists yet):
+# ~+250 spell power, +150 Int, +110 Spi. Talents 14/0/37 by name (class_talents=), not an addon string.
+# Check: Shadowform up, Mind Blast on a 5.5 s cooldown (Improved Mind Blast 5/5) but cast every ~8-9.5 s (no Mind Flay clipping), SW:P 8 ticks, Shadow Weaving at
+# 5 stacks, Mind Flay ticks ramping (Improved Mind Flay), mana lasting most of the fight.
+priest="Sample_Priest_Shadow_60"
+level=60
+race=human
+role=spell
+class_talents=twin_disciplines:5/mental_strength:5/meditation:3/inner_focus:1/shadow_focus:5/improved_mind_blast:5/improved_shadow_word_pain:2/shadow_reach:2/mind_flay:1/improved_mind_flay:2/dark_inspiration:5/vampiric_embrace:1/shadow_weaving:3/silence:1/devouring_contagion:2/early_demise:2/darkness:5/shadowform:1
+main_hand=,id=873
+# Wand: ESTIMATE of a level 60 blue wand (~54 DPS, vanilla-like numbers, not from item data). The engine has no
+# ranged slot, so the priest module takes the wand as min:max:speed[:school]
+priest.wand=64:120:1.7:arcane
+gear_intellect=150
+gear_spirit=110
+gear_stamina=110
+gear_spell_power=250
+gear_crit_rating=28
