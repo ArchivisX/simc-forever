@@ -27,6 +27,7 @@ HEADERS += engine/class_modules/apl/shaman.hpp
 HEADERS += engine/class_modules/apl/warlock.hpp
 HEADERS += engine/class_modules/apl/warrior.hpp
 HEADERS += engine/class_modules/class_module.hpp
+HEADERS += engine/class_modules/forever_helpers.hpp
 HEADERS += engine/config.hpp
 HEADERS += engine/dbc/character_loadout.hpp
 HEADERS += engine/dbc/class_spells.hpp

@@ -31,6 +31,7 @@ To change the list of source files run synchronize.py
 		<ClInclude Include="..\engine\class_modules\apl\warlock.hpp" />
 		<ClInclude Include="..\engine\class_modules\apl\warrior.hpp" />
 		<ClInclude Include="..\engine\class_modules\class_module.hpp" />
+		<ClInclude Include="..\engine\class_modules\forever_helpers.hpp" />
 		<ClInclude Include="..\engine\config.hpp" />
 		<ClInclude Include="..\engine\dbc\character_loadout.hpp" />
 		<ClInclude Include="..\engine\dbc\class_spells.hpp" />
